@@ -16,6 +16,9 @@ USAGE_DIR = Path('output/usage')
 FLOWS_DIR.mkdir(parents=True, exist_ok=True)
 USAGE_DIR.mkdir(parents=True, exist_ok=True)
 
+# Standard coordinate system for all examples
+TARGET_BBOX = (800, 600)
+
 
 # ============================================================================
 # SOFTWARE DIAGRAMS → output/flows/
@@ -42,8 +45,8 @@ def example_architecture() -> None:
         ('api', 'cache'),
     ]
 
-    positions = layout_graph(nodes, edges, target_bbox=(700, 500))
-    render_graph_matplotlib(nodes, edges, positions, str(FLOWS_DIR / 'architecture.png'))
+    positions = layout_graph(nodes, edges, target_bbox=TARGET_BBOX)
+    render_graph_matplotlib(nodes, edges, positions, str(FLOWS_DIR / 'architecture.png'), TARGET_BBOX)
     render_graph_svg(nodes, edges, positions, str(FLOWS_DIR / 'architecture.svg'))
     print()
 
@@ -69,8 +72,8 @@ def example_state_machine() -> None:
         ('error', 'idle'),
     ]
 
-    positions = layout_graph(nodes, edges, target_bbox=(600, 500))
-    render_graph_matplotlib(nodes, edges, positions, str(FLOWS_DIR / 'state_machine.png'))
+    positions = layout_graph(nodes, edges, target_bbox=TARGET_BBOX)
+    render_graph_matplotlib(nodes, edges, positions, str(FLOWS_DIR / 'state_machine.png'), TARGET_BBOX)
     render_graph_svg(nodes, edges, positions, str(FLOWS_DIR / 'state_machine.svg'))
     print()
 
@@ -99,8 +102,8 @@ def example_flowchart() -> None:
         ('output', 'end'),
     ]
 
-    positions = layout_graph(nodes, edges, target_bbox=(700, 600))
-    render_graph_matplotlib(nodes, edges, positions, str(FLOWS_DIR / 'flowchart.png'))
+    positions = layout_graph(nodes, edges, target_bbox=TARGET_BBOX)
+    render_graph_matplotlib(nodes, edges, positions, str(FLOWS_DIR / 'flowchart.png'), TARGET_BBOX)
     render_graph_svg(nodes, edges, positions, str(FLOWS_DIR / 'flowchart.svg'))
     print()
 
@@ -122,8 +125,8 @@ def example_chain() -> None:
     }
     edges = [('A', 'B'), ('B', 'C'), ('C', 'D')]
 
-    positions = layout_graph(nodes, edges, target_bbox=(600, 200))
-    render_graph_matplotlib(nodes, edges, positions, str(USAGE_DIR / 'chain.png'))
+    positions = layout_graph(nodes, edges, target_bbox=TARGET_BBOX)
+    render_graph_matplotlib(nodes, edges, positions, str(USAGE_DIR / 'chain.png'), TARGET_BBOX)
     render_graph_svg(nodes, edges, positions, str(USAGE_DIR / 'chain.svg'))
     print()
 
@@ -141,8 +144,8 @@ def example_yshape() -> None:
     }
     edges = [('A', 'B'), ('B', 'C'), ('B', 'D')]
 
-    positions = layout_graph(nodes, edges, target_bbox=(500, 400))
-    render_graph_matplotlib(nodes, edges, positions, str(USAGE_DIR / 'yshape.png'))
+    positions = layout_graph(nodes, edges, target_bbox=TARGET_BBOX)
+    render_graph_matplotlib(nodes, edges, positions, str(USAGE_DIR / 'yshape.png'), TARGET_BBOX)
     render_graph_svg(nodes, edges, positions, str(USAGE_DIR / 'yshape.svg'))
     print()
 
@@ -159,8 +162,8 @@ def example_cycle() -> None:
     }
     edges = [('A', 'B'), ('B', 'C'), ('C', 'A')]
 
-    positions = layout_graph(nodes, edges, target_bbox=(400, 400))
-    render_graph_matplotlib(nodes, edges, positions, str(USAGE_DIR / 'cycle.png'))
+    positions = layout_graph(nodes, edges, target_bbox=TARGET_BBOX)
+    render_graph_matplotlib(nodes, edges, positions, str(USAGE_DIR / 'cycle.png'), TARGET_BBOX)
     render_graph_svg(nodes, edges, positions, str(USAGE_DIR / 'cycle.svg'))
     print()
 
@@ -191,8 +194,8 @@ def example_workflow() -> None:
         ('error', 'notify'),
     ]
 
-    positions = layout_graph(nodes, edges, target_bbox=(800, 600))
-    render_graph_matplotlib(nodes, edges, positions, str(USAGE_DIR / 'workflow.png'))
+    positions = layout_graph(nodes, edges, target_bbox=TARGET_BBOX)
+    render_graph_matplotlib(nodes, edges, positions, str(USAGE_DIR / 'workflow.png'), TARGET_BBOX)
     render_graph_svg(nodes, edges, positions, str(USAGE_DIR / 'workflow.svg'))
     print()
 
@@ -217,8 +220,8 @@ def example_diamond() -> None:
         ('D', 'E'),
     ]
 
-    positions = layout_graph(nodes, edges, target_bbox=(600, 500))
-    render_graph_matplotlib(nodes, edges, positions, str(USAGE_DIR / 'diamond.png'))
+    positions = layout_graph(nodes, edges, target_bbox=TARGET_BBOX)
+    render_graph_matplotlib(nodes, edges, positions, str(USAGE_DIR / 'diamond.png'), TARGET_BBOX)
     render_graph_svg(nodes, edges, positions, str(USAGE_DIR / 'diamond.svg'))
     print()
 

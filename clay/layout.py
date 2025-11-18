@@ -14,6 +14,59 @@ import matplotlib.patches as patches
 from matplotlib.patches import FancyArrowPatch
 
 
+def measure_text_in_data_coords(
+    label: str,
+    fontsize: int,
+    target_bbox: Tuple[float, float] = (800, 600)
+) -> Tuple[float, float]:
+    """
+    Measure text dimensions in data coordinates.
+
+    This function properly converts text dimensions from font units (points)
+    to data coordinates by actually rendering the text in a temporary figure.
+
+    Args:
+        label: Text to measure
+        fontsize: Font size in points
+        target_bbox: Target coordinate system (width, height)
+
+    Returns:
+        (width, height) in data coordinates
+    """
+    # Create temporary figure with known coordinate system
+    fig, ax = plt.subplots(figsize=(12, 8))
+    ax.set_xlim(0, target_bbox[0])
+    ax.set_ylim(0, target_bbox[1])
+
+    # Add text at center
+    text = ax.text(
+        target_bbox[0] / 2,
+        target_bbox[1] / 2,
+        label,
+        ha='center',
+        va='center',
+        fontsize=fontsize,
+        fontweight='bold'
+    )
+
+    # Draw to generate renderer
+    fig.canvas.draw()
+
+    # Get bounding box in display coordinates
+    bbox_display = text.get_window_extent(renderer=fig.canvas.renderer)
+
+    # Transform to data coordinates
+    bbox_data = bbox_display.transformed(ax.transData.inverted())
+
+    width = bbox_data.width
+    height = bbox_data.height
+
+    # Clean up
+    plt.close(fig)
+
+    return width, height
+
+
 class Node:
     """Represents a graph node with label and dimensions."""
 
@@ -22,9 +75,10 @@ class Node:
         label: str,
         width: Optional[float] = None,
         height: Optional[float] = None,
-        padding_x: float = 2,
-        padding_y: float = 1,
-        fontsize: int = 10
+        padding_x: float = 0.5,
+        padding_y: float = 0.3,
+        fontsize: int = 10,
+        target_bbox: Tuple[float, float] = (800, 600)
     ):
         self.label = label
         self.fontsize = fontsize
@@ -33,15 +87,13 @@ class Node:
 
         # Calculate size if not provided
         if width is None or height is None:
-            from matplotlib.textpath import TextPath
-            from matplotlib.font_manager import FontProperties
+            # Measure text in data coordinates
+            text_width, text_height = measure_text_in_data_coords(
+                label, fontsize, target_bbox
+            )
 
-            font_props = FontProperties(weight='bold', size=fontsize)
-            tp = TextPath((0, 0), label, size=fontsize, prop=font_props)
-            bbox = tp.get_extents()
-
-            self.width = width if width is not None else bbox.width + 2 * padding_x
-            self.height = height if height is not None else bbox.height + 2 * padding_y
+            self.width = width if width is not None else text_width + 2 * padding_x
+            self.height = height if height is not None else text_height + 2 * padding_y
         else:
             self.width = width
             self.height = height
@@ -431,7 +483,8 @@ def render_graph_matplotlib(
     nodes_dict: Dict[str, Node],
     edges: List[Tuple[str, str]],
     positions_dict: Dict[str, Tuple[float, float]],
-    output_file: str = 'graph.png'
+    output_file: str = 'graph.png',
+    target_bbox: Tuple[float, float] = (800, 600)
 ) -> None:
     """
     Render graph using matplotlib.
@@ -441,8 +494,13 @@ def render_graph_matplotlib(
         edges: list of (from_id, to_id) tuples
         positions_dict: dict of {node_id: (x, y)}
         output_file: path to save image
+        target_bbox: coordinate system to use (should match what was used for layout)
     """
     fig, ax = plt.subplots(figsize=(12, 8))
+
+    # Set explicit coordinate system - same as used for layout and text measurement
+    ax.set_xlim(0, target_bbox[0])
+    ax.set_ylim(0, target_bbox[1])
 
     # Draw edges first (so they're behind nodes)
     for (u_id, v_id) in edges:
@@ -493,8 +551,6 @@ def render_graph_matplotlib(
         )
 
     ax.set_aspect('equal')
-    ax.autoscale()
-    ax.margins(0.1)
     ax.axis('off')
 
     plt.tight_layout()
