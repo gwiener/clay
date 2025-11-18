@@ -204,6 +204,8 @@ def overlap_penalty(positions: np.ndarray, nodes: List[Node]) -> float:
     """
     Penalize overlapping nodes (hard constraint via high weight).
 
+    Uses proper 2D rectangle separation checking both X and Y axes.
+
     Args:
         positions: array of shape (n, 2)
         nodes: list of Node objects
@@ -217,19 +219,22 @@ def overlap_penalty(positions: np.ndarray, nodes: List[Node]) -> float:
 
     for i in range(n):
         for j in range(i + 1, n):
-            # Distance between centers
-            dist = np.linalg.norm(positions[i] - positions[j])
+            # Distance between centers in each dimension
+            dx = abs(positions[i][0] - positions[j][0])
+            dy = abs(positions[i][1] - positions[j][1])
 
-            # Minimum required distance (half-widths + margin)
-            min_dist_x = (nodes[i].width + nodes[j].width) / 2 + MARGIN
-            min_dist_y = (nodes[i].height + nodes[j].height) / 2 + MARGIN
+            # Minimum required distance in each dimension
+            min_dx = (nodes[i].width + nodes[j].width) / 2 + MARGIN
+            min_dy = (nodes[i].height + nodes[j].height) / 2 + MARGIN
 
-            # Use the smaller of the two (conservative check)
-            min_dist = min(min_dist_x, min_dist_y)
+            # Check overlap in both dimensions independently
+            overlap_x = max(0, min_dx - dx)
+            overlap_y = max(0, min_dy - dy)
 
-            # Smooth penalty that grows as overlap increases
-            if dist < min_dist:
-                penalty += (min_dist - dist) ** 2
+            # Penalize if overlapping in BOTH dimensions (rectangles overlap)
+            if overlap_x > 0 and overlap_y > 0:
+                # Penalty based on overlap area
+                penalty += (overlap_x * overlap_y) ** 2
 
     return penalty
 
@@ -498,10 +503,6 @@ def render_graph_matplotlib(
     """
     fig, ax = plt.subplots(figsize=(12, 8))
 
-    # Set explicit coordinate system - same as used for layout and text measurement
-    ax.set_xlim(0, target_bbox[0])
-    ax.set_ylim(0, target_bbox[1])
-
     # Draw edges first (so they're behind nodes)
     for (u_id, v_id) in edges:
         u_pos = positions_dict[u_id]
@@ -550,6 +551,25 @@ def render_graph_matplotlib(
             zorder=3
         )
 
+    # Calculate tight bounding box from actual node positions
+    min_x = min(positions_dict[node_id][0] - nodes_dict[node_id].width/2
+                for node_id in nodes_dict.keys())
+    max_x = max(positions_dict[node_id][0] + nodes_dict[node_id].width/2
+                for node_id in nodes_dict.keys())
+    min_y = min(positions_dict[node_id][1] - nodes_dict[node_id].height/2
+                for node_id in nodes_dict.keys())
+    max_y = max(positions_dict[node_id][1] + nodes_dict[node_id].height/2
+                for node_id in nodes_dict.keys())
+
+    # Add 10% margin
+    width = max_x - min_x
+    height = max_y - min_y
+    margin_x = width * 0.1
+    margin_y = height * 0.1
+
+    # Set axis limits to show only the used area
+    ax.set_xlim(min_x - margin_x, max_x + margin_x)
+    ax.set_ylim(min_y - margin_y, max_y + margin_y)
     ax.set_aspect('equal')
     ax.axis('off')
 
