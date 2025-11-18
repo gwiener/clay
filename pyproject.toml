@@ -1,0 +1,11 @@
+[project]
+name = "clay"
+version = "0.1.0"
+description = "Claude's Layout engine"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "matplotlib>=3.10.7",
+    "numpy>=2.3.5",
+    "scipy>=1.16.3",
+]
