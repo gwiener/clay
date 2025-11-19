@@ -399,3 +399,93 @@ def layout_from_file(
     clay_text = path.read_text(encoding='utf-8')
 
     return layout_from_text(clay_text, target_bbox, verbose, **weight_overrides)
+
+
+def render_from_file(
+    input_file: str,
+    output_file: str,
+    target_bbox: Optional[Tuple[float, float]] = None,
+    verbose: Optional[bool] = None,
+    **weight_overrides
+) -> None:
+    """
+    Complete workflow: parse Clay DSL file, compute layout, and render output.
+
+    Automatically detects output format from file extension (.png or .svg).
+
+    Args:
+        input_file: Path to .clay file
+        output_file: Path to output file (.png or .svg)
+        target_bbox: Override target bounding box
+        verbose: Override verbose setting
+        **weight_overrides: Override specific weights
+
+    Raises:
+        FileNotFoundError: If input file doesn't exist
+        ValueError: If output format is unsupported
+
+    Example:
+        >>> render_from_file('examples/simple.clay', 'output/simple.png')
+        >>> render_from_file('examples/simple.clay', 'output/simple.svg')
+    """
+    from clay.layout import render_graph_matplotlib, render_graph_svg
+
+    # Validate input file
+    input_path = Path(input_file)
+    if not input_path.exists():
+        raise FileNotFoundError(f"Input file not found: {input_file}")
+
+    # Detect output format from extension
+    output_path = Path(output_file)
+    output_format = output_path.suffix.lower()
+
+    if output_format not in ('.png', '.svg'):
+        raise ValueError(
+            f"Unsupported output format: {output_format}\n"
+            f"Supported formats: .png, .svg"
+        )
+
+    # Create output directory if needed
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    # Parse the Clay DSL
+    clay_text = input_path.read_text(encoding='utf-8')
+    parsed = parse_clay_text(clay_text)
+
+    # Extract settings from DSL
+    graph_settings = _extract_graph_settings(parsed)
+
+    # Apply parameter overrides
+    if target_bbox is not None:
+        graph_settings['target_bbox'] = target_bbox
+    if verbose is not None:
+        graph_settings['verbose'] = verbose
+    graph_settings['weights'].update(weight_overrides)
+
+    # Build nodes dict and compute layout
+    nodes_dict = _build_nodes_dict(parsed, graph_settings['target_bbox'])
+    edges = parsed.edges
+
+    positions = layout_graph(
+        nodes_dict,
+        edges,
+        target_bbox=graph_settings['target_bbox'],
+        verbose=graph_settings['verbose']
+    )
+
+    # Render to appropriate format
+    if output_format == '.png':
+        render_graph_matplotlib(
+            nodes_dict,
+            edges,
+            positions,
+            str(output_path),
+            target_bbox=graph_settings['target_bbox']
+        )
+    else:  # .svg
+        render_graph_svg(
+            nodes_dict,
+            edges,
+            positions,
+            str(output_path)
+        )
