@@ -2,6 +2,7 @@
 
 ## In Progress
 <!-- Tasks currently being worked on -->
+- [ ] Implement edge-node intersection penalty (edges crossing through nodes)
 
 ## Next Up (High Priority)
 <!-- Important tasks with clear next steps -->
@@ -12,7 +13,6 @@
 ## Backlog
 <!-- Features, improvements, and technical debt -->
 - [ ] Solve edge-to-edge intersections (edges crossing other edges)
-- [ ] Solve edge-to-node intersections (edges crossing through nodes)
 - [ ] Prefer LR or TD edge angles using a force (directional bias for layout)
 
 ## Ideas / Future
