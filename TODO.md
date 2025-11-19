@@ -2,7 +2,6 @@
 
 ## In Progress
 <!-- Tasks currently being worked on -->
-- [ ] Implement edge-node intersection penalty (edges crossing through nodes)
 
 ## Next Up (High Priority)
 <!-- Important tasks with clear next steps -->
@@ -20,4 +19,5 @@
 
 ## Done (Recent)
 <!-- Completed tasks with dates for context -->
+- [x] Implement edge-node intersection penalty (2025-11-19)
 - [x] Add parser tests for DSL parsing (2025-11-19)

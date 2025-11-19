@@ -301,6 +301,83 @@ def straightness_penalty(
     return penalty
 
 
+def edge_node_intersection_penalty(
+    positions: np.ndarray,
+    edges: List[Tuple[int, int]],
+    nodes: List[Node]
+) -> float:
+    """
+    Penalize edges that pass through nodes that are not their endpoints.
+
+    For each edge, checks if it intersects with any node rectangle (except
+    the edge's source and destination nodes). If an intersection is detected,
+    calculates how deeply the edge penetrates through the node and applies
+    a quadratic penalty.
+
+    Uses the segment midpoint depth as a proxy for penetration severity:
+    edges passing through the center of a node are penalized more heavily
+    than edges grazing the edge of a node.
+
+    Args:
+        positions: array of shape (n, 2) with (x, y) coordinates
+        edges: list of (from_idx, to_idx) tuples
+        nodes: list of Node objects with width and height attributes
+
+    Returns:
+        penalty value (float)
+
+    Complexity:
+        O(m * n) where m = number of edges, n = number of nodes
+        Acceptable for typical graphs with dozens of nodes and edges.
+
+    Note:
+        Requires segment_intersects_rectangle from clay.geometry module.
+    """
+    from clay.geometry import segment_intersects_rectangle
+
+    penalty = 0.0
+
+    for (u, v) in edges:
+        edge_start = positions[u]
+        edge_end = positions[v]
+        edge_midpoint = (edge_start + edge_end) / 2.0
+
+        # Check intersection with all nodes except edge endpoints
+        for i in range(len(nodes)):
+            if i == u or i == v:
+                continue  # Skip edge's source and destination nodes
+
+            # Fast binary check: does edge intersect this node's rectangle?
+            if segment_intersects_rectangle(
+                tuple(edge_start),
+                tuple(edge_end),
+                tuple(positions[i]),
+                nodes[i].width,
+                nodes[i].height
+            ):
+                # Calculate penetration depth at edge midpoint
+                rect_center = positions[i]
+                half_width = nodes[i].width / 2.0
+                half_height = nodes[i].height / 2.0
+
+                # Distance from midpoint to rectangle center in each dimension
+                dx = abs(edge_midpoint[0] - rect_center[0])
+                dy = abs(edge_midpoint[1] - rect_center[1])
+
+                # Depth from each edge (how far inside from the boundary)
+                depth_x = half_width - dx
+                depth_y = half_height - dy
+
+                # Use minimum depth (distance to nearest rectangle edge)
+                # This represents how deeply the edge penetrates
+                if depth_x > 0 and depth_y > 0:
+                    depth = min(depth_x, depth_y)
+                    # Quadratic penalty: deeper penetration = much worse
+                    penalty += depth ** 2
+
+    return penalty
+
+
 def bounding_box_penalty(
     positions: np.ndarray,
     nodes: List[Node],
@@ -387,15 +464,17 @@ def energy_function(
     E = 0
 
     # Weights (tunable parameters)
-    W_OVERLAP = 1000      # Hard constraint
-    W_EDGE_LENGTH = 10    # Keep connected nodes close
-    W_STRAIGHTNESS = 5    # Encourage straight-through paths
-    W_BBOX = 100          # Stay within target box
-    W_AREA = 1            # Minimize total area
+    W_OVERLAP = 1000       # Hard constraint - nodes must not overlap
+    W_EDGE_LENGTH = 10     # Keep connected nodes close
+    W_STRAIGHTNESS = 5     # Encourage straight-through paths
+    W_EDGE_NODE = 200      # Prevent edges from crossing through nodes
+    W_BBOX = 100           # Stay within target box
+    W_AREA = 1             # Minimize total area
 
     E += W_OVERLAP * overlap_penalty(positions, nodes)
     E += W_EDGE_LENGTH * edge_length_penalty(positions, edges)
     E += W_STRAIGHTNESS * straightness_penalty(positions, edges, nodes)
+    E += W_EDGE_NODE * edge_node_intersection_penalty(positions, edges, nodes)
     E += W_BBOX * bounding_box_penalty(positions, nodes, target_bbox)
     E += W_AREA * area_penalty(positions, nodes)
 
