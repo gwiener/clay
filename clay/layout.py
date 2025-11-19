@@ -521,9 +521,9 @@ def render_graph_matplotlib(
 
         arrow = FancyArrowPatch(
             start, end,
-            arrowstyle='->,head_width=0.4,head_length=0.8',
+            arrowstyle='->,head_width=4,head_length=8',
             color='#333333',
-            linewidth=1.5,
+            linewidth=2,
             zorder=1
         )
         ax.add_patch(arrow)
