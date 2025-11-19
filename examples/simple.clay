@@ -1,0 +1,10 @@
+# Simple 3-node example
+# Minimal DSL demonstration
+
+a "Node A"
+b "Node B"
+c "Node C"
+
+a -> b -> c
+
+@bbox 600 400

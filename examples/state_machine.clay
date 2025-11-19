@@ -1,0 +1,29 @@
+# State Machine - Order Processing
+# Demonstrates cycle handling and compact layout
+
+# States
+idle "Idle"
+processing "Processing Order"
+payment "Payment Required"
+shipping "Shipping"
+complete "Complete"
+cancelled "Cancelled"
+
+# State transitions
+idle -> processing
+processing -> payment
+payment -> shipping
+shipping -> complete
+
+# Error paths
+processing -> cancelled
+payment -> cancelled
+
+# Retry loops (cycles)
+payment -> processing
+shipping -> processing
+
+# Settings for tighter layout
+@bbox 1000 600
+@weight straightness 10
+@weight edge_length 8

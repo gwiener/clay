@@ -1,0 +1,33 @@
+# Architecture Diagram - Web Application
+# This demonstrates the Clay DSL for defining graph layouts
+
+# Node declarations
+# Simple nodes (ID used as label)
+user
+database
+cache
+
+# Nodes with custom labels
+web "Web Server"
+api "API Gateway"
+auth "Auth Service"
+
+# Nodes with custom properties
+logger "Audit Log" width=100 fontsize=12
+
+# Edge declarations
+# Simple edges
+user -> web
+web -> api
+
+# Chain notation (creates multiple edges)
+api -> auth -> database
+api -> cache
+
+# Additional connection
+auth -> logger
+api -> logger
+
+# Graph settings (all optional)
+@bbox 800 600
+@verbose true
