@@ -1,0 +1,14 @@
+# Simple Chain - Linear Flow
+# Tests straightness penalty with A→B→C→D
+
+# Nodes
+a "Start"
+b "Process"
+c "Decision"
+d "End"
+
+# Simple chain
+a -> b -> c -> d
+
+# Settings
+@bbox 800 600

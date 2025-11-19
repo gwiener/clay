@@ -1,0 +1,19 @@
+# Diamond - Split and Merge Pattern
+# A splits to B and C, which merge at D, then to E
+
+# Nodes
+a "Start"
+b "Branch 1"
+c "Branch 2"
+d "Merge"
+e "End"
+
+# Diamond flow
+a -> b
+a -> c
+b -> d
+c -> d
+d -> e
+
+# Settings
+@bbox 800 600

@@ -1,0 +1,13 @@
+# Cycle - Circular Triangle
+# Demonstrates pure cycle handling: A→B→C→A
+
+# Nodes
+a "State A"
+b "State B"
+c "State C"
+
+# Circular flow
+a -> b -> c -> a
+
+# Settings
+@bbox 800 600

@@ -1,0 +1,23 @@
+# Flowchart - Input Validation Flow
+# Demonstrates decision branching with error recovery
+
+# Nodes
+start "Start"
+input "Get Input"
+valid "Is Valid?"
+process "Process"
+error "Show Error"
+output "Display Result"
+end "End"
+
+# Flow
+start -> input -> valid
+valid -> process
+valid -> error
+process -> output -> end
+
+# Error recovery loop
+error -> input
+
+# Settings
+@bbox 800 600

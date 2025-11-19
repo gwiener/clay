@@ -1,0 +1,16 @@
+# Y-Shape - Single Split Pattern
+# A→B splits to C and D
+
+# Nodes
+a "Input"
+b "Process"
+c "Output 1"
+d "Output 2"
+
+# Y-shape flow
+a -> b
+b -> c
+b -> d
+
+# Settings
+@bbox 800 600
