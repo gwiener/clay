@@ -360,14 +360,14 @@ def layout_from_text(
     # Call the core layout engine
     # Note: Currently layout_graph() doesn't support weight overrides
     # We'll need to pass them through or modify the energy function
-    positions = layout_graph(
+    result = layout_graph(
         nodes_dict,
         edges,
         target_bbox=graph_settings['target_bbox'],
         verbose=graph_settings['verbose']
     )
 
-    return positions
+    return result.positions
 
 
 def layout_from_file(
@@ -407,7 +407,7 @@ def render_from_file(
     target_bbox: Optional[Tuple[float, float]] = None,
     verbose: Optional[bool] = None,
     **weight_overrides
-) -> None:
+):
     """
     Complete workflow: parse Clay DSL file, compute layout, and render output.
 
@@ -420,13 +420,16 @@ def render_from_file(
         verbose: Override verbose setting
         **weight_overrides: Override specific weights
 
+    Returns:
+        LayoutResult object containing positions and statistics
+
     Raises:
         FileNotFoundError: If input file doesn't exist
         ValueError: If output format is unsupported
 
     Example:
-        >>> render_from_file('examples/simple.clay', 'output/simple.png')
-        >>> render_from_file('examples/simple.clay', 'output/simple.svg')
+        >>> result = render_from_file('examples/simple.clay', 'output/simple.png')
+        >>> print(result.stats.iterations)
     """
     from clay.layout import render_graph_matplotlib, render_graph_svg
 
@@ -466,7 +469,7 @@ def render_from_file(
     nodes_dict = _build_nodes_dict(parsed, graph_settings['target_bbox'])
     edges = parsed.edges
 
-    positions = layout_graph(
+    result = layout_graph(
         nodes_dict,
         edges,
         target_bbox=graph_settings['target_bbox'],
@@ -478,7 +481,7 @@ def render_from_file(
         render_graph_matplotlib(
             nodes_dict,
             edges,
-            positions,
+            result.positions,
             str(output_path),
             target_bbox=graph_settings['target_bbox']
         )
@@ -486,6 +489,8 @@ def render_from_file(
         render_graph_svg(
             nodes_dict,
             edges,
-            positions,
+            result.positions,
             str(output_path)
         )
+
+    return result

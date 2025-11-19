@@ -7,7 +7,13 @@ layout optimization process.
 
 import numpy as np
 
-from clay.layout import Node, edge_node_intersection_penalty
+from clay.layout import (
+    Node,
+    edge_node_intersection_penalty,
+    layout_graph,
+    LayoutResult,
+    LayoutStats
+)
 
 
 class TestEdgeNodeIntersectionPenalty:
@@ -176,3 +182,63 @@ class TestEdgeNodeIntersectionPenalty:
         assert penalty > 0, "Edge through large node should be penalized"
         # Larger node means deeper penetration possible
         assert penalty > 1000, "Large node intersection should have substantial penalty"
+
+
+class TestLayoutGraph:
+    """Tests for the main layout_graph function and result structure."""
+
+    def test_layout_result_has_stats(self):
+        """layout_graph should return LayoutResult with populated stats."""
+        # Create a simple graph
+        nodes_dict = {
+            'A': Node('A', width=40, height=30),
+            'B': Node('B', width=40, height=30),
+            'C': Node('C', width=40, height=30),
+        }
+        edges = [('A', 'B'), ('B', 'C')]
+
+        # Layout the graph
+        result = layout_graph(nodes_dict, edges, verbose=False)
+
+        # Verify result type
+        assert isinstance(result, LayoutResult), "Should return LayoutResult"
+        assert isinstance(result.stats, LayoutStats), "Should contain LayoutStats"
+
+        # Verify stats are populated
+        assert result.stats.success is not None, "success should be set"
+        assert result.stats.iterations > 0, "Should have positive iterations"
+        assert result.stats.function_evals > 0, "Should have positive function evals"
+        assert result.stats.final_energy >= 0, "Should have non-negative energy"
+        assert isinstance(result.stats.message, str), "message should be string"
+
+        # Verify penalty breakdown is populated
+        assert len(result.stats.penalty_breakdown) > 0, "penalty_breakdown should not be empty"
+        expected_penalties = {'overlap', 'edge_length', 'straightness', 'edge_node', 'bbox', 'area'}
+        assert set(result.stats.penalty_breakdown.keys()) == expected_penalties, \
+            "Should have all penalty components"
+
+        # Verify all penalties are numbers
+        for name, value in result.stats.penalty_breakdown.items():
+            assert isinstance(value, (int, float, np.number)), \
+                f"Penalty {name} should be numeric"
+
+        # Verify weights are populated
+        assert len(result.stats.weights) > 0, "weights should not be empty"
+        assert set(result.stats.weights.keys()) == expected_penalties, \
+            "Should have weights for all penalties"
+
+        # Verify positions are populated
+        assert len(result.positions) == 3, "Should have 3 node positions"
+        assert 'A' in result.positions, "Should have position for node A"
+        assert 'B' in result.positions, "Should have position for node B"
+        assert 'C' in result.positions, "Should have position for node C"
+
+    def test_empty_graph_returns_valid_stats(self):
+        """Empty graph should return LayoutResult with valid empty stats."""
+        result = layout_graph({}, [], verbose=False)
+
+        assert isinstance(result, LayoutResult), "Should return LayoutResult"
+        assert result.stats.success is True, "Empty graph is trivially successful"
+        assert result.stats.iterations == 0, "No iterations for empty graph"
+        assert result.stats.final_energy == 0.0, "Zero energy for empty graph"
+        assert len(result.positions) == 0, "No positions for empty graph"

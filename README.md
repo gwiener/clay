@@ -44,6 +44,12 @@ python -m clay my_diagram.clay
 python -m clay my_diagram.clay -o output.png
 python -m clay my_diagram.clay -o output.svg
 
+# Show optimization statistics
+python -m clay my_diagram.clay -s
+
+# Save statistics to JSON file
+python -m clay my_diagram.clay -s stats.json
+
 # Render all examples
 ./examples.sh
 ```
@@ -64,10 +70,14 @@ nodes = {
 edges = [('A', 'B'), ('B', 'C')]
 
 # Layout the graph
-positions = layout_graph(nodes, edges, target_bbox=(600, 400))
+result = layout_graph(nodes, edges, target_bbox=(600, 400))
+
+# Access positions and stats
+print(f"Converged in {result.stats.iterations} iterations")
+print(f"Final energy: {result.stats.final_energy}")
 
 # Render
-render_graph_matplotlib(nodes, edges, positions, 'my_graph.png')
+render_graph_matplotlib(nodes, edges, result.positions, 'my_graph.png')
 ```
 
 ## Clay DSL Reference
@@ -140,6 +150,54 @@ b -> d
 @verbose true|false          # Show optimization progress (default: true)
 @weight NAME VALUE           # Override energy weights
 ```
+
+## Optimization Statistics
+
+Use the `--stats` flag to inspect optimization performance and energy breakdown:
+
+```bash
+# Print stats to stdout
+python -m clay diagram.clay -s
+
+# Save stats to JSON file
+python -m clay diagram.clay -s stats.json
+```
+
+**Example output:**
+```json
+{
+  "success": true,
+  "iterations": 49,
+  "function_evals": 2044,
+  "final_energy": 30206.85,
+  "penalty_breakdown": {
+    "overlap": 0.0008,
+    "edge_length": 2606.89,
+    "straightness": 332.56,
+    "edge_node": 0.0,
+    "bbox": 0,
+    "area": 2474.42
+  },
+  "weights": {
+    "overlap": 1000,
+    "edge_length": 10,
+    "straightness": 5,
+    "edge_node": 200,
+    "bbox": 100,
+    "area": 1
+  },
+  "target_bbox": [600.0, 400.0],
+  "message": "CONVERGENCE: RELATIVE REDUCTION OF F <= FACTR*EPSMCH"
+}
+```
+
+**Understanding the stats:**
+- `iterations`: Number of optimization steps taken
+- `function_evals`: Total energy function calls (includes gradient estimation)
+- `final_energy`: Total weighted energy at solution
+- `penalty_breakdown`: Raw penalty values before weighting
+- `weights`: Multipliers applied to each penalty
+- `message`: Optimizer termination reason
 
 **Available weights:**
 - `straightness` - Encourages collinear A→B→C paths (default: 5)

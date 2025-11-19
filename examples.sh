@@ -36,14 +36,15 @@ for clay_file in examples/*.clay; do
 
         echo -n "Rendering ${basename}.clay... "
 
-        # Run clay CLI
-        if python -m clay "$clay_file" -o "$output_file" > /dev/null 2>&1; then
+        # Run clay CLI with stats output
+        if python -m clay "$clay_file" -o "$output_file" -s 2>&1 | head -n 5; then
             echo -e "${GREEN}✓${NC}"
             success=$((success + 1))
         else
             echo -e "${RED}✗${NC}"
             failed=$((failed + 1))
         fi
+        echo ""
     fi
 done
 

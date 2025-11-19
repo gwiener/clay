@@ -5,6 +5,7 @@ Implements constrained optimization for compact, orderly diagram layouts.
 """
 
 from collections import defaultdict
+from dataclasses import dataclass
 from typing import Dict, List, Tuple, Optional
 
 import numpy as np
@@ -12,6 +13,26 @@ from scipy.optimize import minimize
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 from matplotlib.patches import FancyArrowPatch
+
+
+@dataclass
+class LayoutStats:
+    """Statistics and metadata from layout optimization."""
+    success: bool
+    iterations: int
+    function_evals: int
+    final_energy: float
+    penalty_breakdown: Dict[str, float]
+    weights: Dict[str, float]
+    target_bbox: Tuple[float, float]
+    message: str
+
+
+@dataclass
+class LayoutResult:
+    """Result from layout optimization containing positions and statistics."""
+    positions: Dict[str, Tuple[float, float]]
+    stats: LayoutStats
 
 
 def measure_text_in_data_coords(
@@ -490,7 +511,7 @@ def layout_graph(
     edges: List[Tuple[str, str]],
     target_bbox: Tuple[float, float] = (800, 600),
     verbose: bool = True
-) -> Dict[str, Tuple[float, float]]:
+) -> LayoutResult:
     """
     Layout a graph using constrained optimization.
 
@@ -501,7 +522,7 @@ def layout_graph(
         verbose: print optimization progress
 
     Returns:
-        dict of {node_id: (x, y)} positions
+        LayoutResult containing positions and optimization statistics
     """
     # Create ordered list of node IDs and index mapping
     node_ids = list(nodes_dict.keys())
@@ -516,7 +537,18 @@ def layout_graph(
     n = len(nodes_list)
 
     if n == 0:
-        return {}
+        # Return empty result
+        empty_stats = LayoutStats(
+            success=True,
+            iterations=0,
+            function_evals=0,
+            final_energy=0.0,
+            penalty_breakdown={},
+            weights={},
+            target_bbox=target_bbox,
+            message="Empty graph"
+        )
+        return LayoutResult(positions={}, stats=empty_stats)
 
     # Initial layout - simple grid
     grid_size = int(np.ceil(np.sqrt(n)))
@@ -556,7 +588,39 @@ def layout_graph(
         for node_id, idx in id_to_idx.items()
     }
 
-    return positions_dict
+    # Compute penalty breakdown at final positions
+    # Weight constants (must match energy_function)
+    weights = {
+        'overlap': 1000,
+        'edge_length': 10,
+        'straightness': 5,
+        'edge_node': 200,
+        'bbox': 100,
+        'area': 1
+    }
+
+    penalty_breakdown = {
+        'overlap': overlap_penalty(positions_array, nodes_list),
+        'edge_length': edge_length_penalty(positions_array, edges_idx),
+        'straightness': straightness_penalty(positions_array, edges_idx, nodes_list),
+        'edge_node': edge_node_intersection_penalty(positions_array, edges_idx, nodes_list),
+        'bbox': bounding_box_penalty(positions_array, nodes_list, target_bbox),
+        'area': area_penalty(positions_array, nodes_list)
+    }
+
+    # Create stats object
+    stats = LayoutStats(
+        success=result.success,
+        iterations=result.nit,
+        function_evals=result.nfev,
+        final_energy=result.fun,
+        penalty_breakdown=penalty_breakdown,
+        weights=weights,
+        target_bbox=target_bbox,
+        message=result.message
+    )
+
+    return LayoutResult(positions=positions_dict, stats=stats)
 
 
 # ============================================================================

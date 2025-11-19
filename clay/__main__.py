@@ -5,10 +5,14 @@ Usage:
     python -m clay input.clay                    # Outputs to input.png
     python -m clay input.clay -o output.svg      # Outputs to output.svg
     python -m clay input.clay -o dir/output.png  # Creates dir/ if needed
+    python -m clay input.clay -s                 # Show stats on stdout
+    python -m clay input.clay -s stats.json      # Save stats to file
 """
 
 import argparse
+import json
 import sys
+from dataclasses import asdict
 from pathlib import Path
 
 from clay.parser import render_from_file
@@ -36,6 +40,16 @@ def main() -> int:
         help='Output file path (.png or .svg). Default: {input_basename}.png'
     )
 
+    parser.add_argument(
+        '-s', '--stats',
+        nargs='?',
+        const='',
+        default=None,
+        dest='stats_file',
+        metavar='FILE',
+        help='Output optimization statistics. If FILE provided, saves to file; otherwise prints to stdout'
+    )
+
     args = parser.parse_args()
 
     # Determine output file path
@@ -49,8 +63,22 @@ def main() -> int:
 
     # Render the diagram
     try:
-        render_from_file(args.input_file, output_file)
+        result = render_from_file(args.input_file, output_file)
         print(f"✓ Rendered {args.input_file} → {output_file}")
+
+        # Handle stats output if requested
+        if args.stats_file is not None:
+            stats_json = json.dumps(asdict(result.stats), indent=2)
+
+            if args.stats_file == '':
+                # Print to stdout
+                print("\n" + stats_json)
+            else:
+                # Save to file
+                stats_path = Path(args.stats_file)
+                stats_path.write_text(stats_json, encoding='utf-8')
+                print(f"✓ Stats saved to {args.stats_file}")
+
         return 0
 
     except FileNotFoundError as e:
