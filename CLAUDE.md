@@ -6,6 +6,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **clay** is an automatic diagram layout engine that uses constrained optimization to create compact, orderly graph layouts. The key innovation is a "straightness penalty" that encourages collinear node placement in A→B→C paths, creating smooth visual flow without rigid hierarchical constraints.
 
+The project provides:
+1. **Python package** (`clay/`) - Core layout engine with programmatic API
+2. **DSL parser** - Human-friendly `.clay` text format for defining diagrams
+3. **CLI tool** - Command-line interface via `python -m clay`
+4. **Examples** - 9 `.clay` example files demonstrating various patterns
+
 ## Development Setup
 
 ```bash
@@ -15,44 +21,87 @@ uv sync
 # Or using pip
 pip install -r pyproject.toml
 
-# Run the built-in examples
-python graph_layout.py
+# Run all examples
+./examples.sh
 
-# Run additional usage examples
-python usage_example.py
+# Run specific example
+python -m clay examples/simple.clay -o output/test.png
 ```
 
 ## Core Architecture
 
-### Main Module: `graph_layout.py`
+### Package Structure
 
-The single-file implementation (~580 lines) is organized into distinct sections:
+```
+clay/
+├── __init__.py          # Public API exports
+├── __main__.py          # CLI entry point (python -m clay)
+├── layout.py            # Core layout engine (was graph_layout.py)
+└── parser.py            # DSL parser and high-level functions
 
-1. **Node Class** (lines 15-20)
-   - Simple data container for label, width, height
+examples/
+├── simple.clay          # Basic examples
+├── architecture.clay    # ...9 total example files
+└── ...
 
-2. **Geometry Utilities** (lines 23-110)
-   - `rect_edge_point()`: Calculates arrow connection points on rectangle boundaries
+examples.sh              # Shell script to render all examples
+```
+
+### Module: `clay/layout.py`
+
+Core layout engine (~580 lines) with distinct sections:
+
+1. **Node Class**
+   - Data container: `Node(label, width, height, fontsize, target_bbox)`
+   - Auto-calculates text dimensions based on target_bbox
+
+2. **Geometry Utilities**
+   - `rect_edge_point()`: Arrow connection points on rectangle boundaries
    - `point_to_line_distance()`: Measures deviation from collinearity
 
-3. **Energy Function Components** (lines 113-258)
+3. **Energy Function Components**
    - `overlap_penalty()`: Prevents node overlap (weight: 1000)
    - `edge_length_penalty()`: Keeps connected nodes close (weight: 10)
    - `straightness_penalty()`: Encourages A→B→C collinearity (weight: 5) - **KEY INNOVATION**
    - `bounding_box_penalty()`: Constrains diagram size (weight: 100)
    - `area_penalty()`: Minimizes layout area (weight: 1)
 
-4. **Main Energy Function** (lines 261-295)
+4. **Main Functions**
    - `energy_function()`: Combines all penalties with tunable weights
-
-5. **Layout Engine** (lines 298-368)
    - `layout_graph()`: Main API - uses scipy's L-BFGS-B optimizer
-   - Input: `{node_id: Node}` dict and `[(from_id, to_id)]` edges
-   - Output: `{node_id: (x, y)}` positions
-
-6. **Rendering** (lines 371-536)
-   - `render_graph_matplotlib()`: PNG output with matplotlib
+   - `render_graph_matplotlib()`: PNG output (300 DPI)
    - `render_graph_svg()`: Vector SVG output
+
+### Module: `clay/parser.py`
+
+DSL parser and high-level API (~490 lines):
+
+1. **Regex Patterns**
+   - `NODE_PATTERN`: Matches node declarations
+   - `EDGE_PATTERN`: Matches arrow operators
+   - `SETTING_PATTERN`: Matches @directives
+   - `PROPERTY_PATTERN`: Matches key=value pairs
+
+2. **Parsing Functions**
+   - `parse_clay_text()`: Main parser, returns `ParsedDiagram`
+   - `parse_node_line()`: Extracts node ID, label, properties
+   - `parse_edge_line()`: Handles chained edges (a -> b -> c)
+   - `parse_setting_line()`: Extracts @bbox, @verbose, @weight
+
+3. **High-Level API**
+   - `layout_from_text()`: Parse DSL text and compute layout
+   - `layout_from_file()`: Parse .clay file and compute layout
+   - `render_from_file()`: Complete workflow - parse, layout, render
+
+### Module: `clay/__main__.py`
+
+CLI entry point (~70 lines):
+
+- Uses `argparse` for command-line arguments
+- Required: `input_file` (.clay file path)
+- Optional: `-o/--output` (defaults to `{input_basename}.png`)
+- Auto-detects format from extension (.png or .svg)
+- Wraps `render_from_file()` with user-friendly error messages
 
 ### Design Principles
 
@@ -61,19 +110,29 @@ The single-file implementation (~580 lines) is organized into distinct sections:
 - **Cycle-friendly**: Naturally handles cyclic graphs
 - **Local straightness**: Straightness penalty is local (per triplet) not global
 - **Meaningful IDs**: Node IDs are user-defined strings, not indices
+- **Declarative DSL**: Human-friendly text format with minimal syntax
 
 ## Common Patterns
 
-### Adding New Node Shapes
+### Adding New DSL Features
 
-Currently only rectangles are supported. To add circles:
-1. Modify `Node` class to include `shape` parameter
-2. Update overlap penalty calculations for circle geometry
-3. Update rendering functions for both matplotlib and SVG
+To add new node properties (e.g., `color`):
+1. Update `PROPERTY_PATTERN` in `clay/parser.py` if needed
+2. Modify `_parse_properties()` to handle new property type
+3. Update `Node` class in `clay/layout.py` to accept new parameter
+4. Update rendering functions to use the new property
+
+### Adding New DSL Settings
+
+To add new @directives (e.g., `@margin`):
+1. Add parsing logic in `parse_setting_line()` in `clay/parser.py`
+2. Update `_extract_graph_settings()` to handle the new setting
+3. Pass the setting through to `layout_graph()` or renderers
+4. Update README.md with documentation
 
 ### Tuning Layout Behavior
 
-Energy weights are defined in `energy_function()` (lines 282-286):
+Energy weights are defined in `energy_function()` in `clay/layout.py`:
 ```python
 W_OVERLAP = 1000      # Hard constraint - keep high
 W_EDGE_LENGTH = 10    # Higher = tighter clustering
@@ -82,40 +141,78 @@ W_BBOX = 100          # Higher = stricter size limit
 W_AREA = 1            # Higher = more compact
 ```
 
+Users can override via DSL: `@weight straightness 10`
+
 ### Creating Custom Diagrams
 
-Follow the pattern in `usage_example.py`:
+**Recommended (DSL):**
+1. Create a `.clay` file with nodes, edges, and settings
+2. Run `python -m clay mydiagram.clay -o output.png`
+
+**Programmatic (Python API):**
 1. Define nodes dict with meaningful IDs
 2. Define edges as list of ID tuples
 3. Call `layout_graph()` with target bounding box
-4. Render using both PNG and SVG for flexibility
+4. Render using `render_graph_matplotlib()` or `render_graph_svg()`
+
+Or use the high-level API:
+```python
+from clay import render_from_file
+render_from_file('diagram.clay', 'output.png')
+```
 
 ## Testing
 
 Currently no automated test suite. To verify changes:
-```bash
-# Run all examples and visually inspect outputs
-python graph_layout.py
-python usage_example.py
 
-# Check that output files are generated:
-# - example_*.png/svg (5 pairs)
-# - architecture.png/svg
-# - state_machine.png/svg
-# - flowchart.png/svg
+```bash
+# Run all 9 examples and visually inspect outputs
+./examples.sh
+
+# Test specific example
+python -m clay examples/simple.clay -o output/test.png
+
+# Test CLI error handling
+python -m clay nonexistent.clay  # Should show error
+python -m clay examples/simple.clay -o test.pdf  # Should reject .pdf
+
+# Verify all outputs generated in output/
+ls -lh output/*.png
 ```
+
+**Visual inspection checklist:**
+- No overlapping nodes
+- Connected nodes are reasonably close
+- A→B→C paths appear relatively straight
+- Diagrams fit within intended bounds
+- Arrows point to correct node edges
 
 ## File Structure
 
 ```
-clay/
-├── graph_layout.py      # Core implementation + examples
-├── usage_example.py     # Additional practical examples
-├── hello.py             # Simple test script (can be ignored)
-├── pyproject.toml       # Dependencies (numpy, scipy, matplotlib)
-├── README.md            # User documentation
-├── BUILD_SUMMARY.md     # Development notes and analysis
-└── .venv/               # Virtual environment (gitignored)
+clay/                        # Main package
+├── __init__.py              # Public API exports
+├── __main__.py              # CLI entry point (70 lines)
+├── layout.py                # Core layout engine (580 lines)
+└── parser.py                # DSL parser (490 lines)
+
+examples/                    # Example .clay files
+├── simple.clay              # Basic 3-node chain
+├── chain.clay               # Linear A→B→C→D
+├── yshape.clay              # Y-shape fork
+├── cycle.clay               # Circular triangle
+├── diamond.clay             # Split-and-merge
+├── flowchart.clay           # Decision flow
+├── workflow.clay            # Complex workflow
+├── architecture.clay        # Web application
+└── state_machine.clay       # Order processing FSM
+
+examples.sh                  # Shell script to render all examples
+output/                      # Rendered diagrams (gitignored)
+pyproject.toml               # Dependencies (numpy, scipy, matplotlib)
+README.md                    # User documentation (see for API details)
+CLAUDE.md                    # This file - development guidance
+BUILD_SUMMARY.md             # Development notes and analysis
 ```
 
 ## Dependencies
@@ -137,3 +234,46 @@ clay/
 - 3-4 nodes: ~30-70 iterations, <1 second
 - 8 nodes: ~70 iterations, ~1 second
 - Complexity grows as O(n²) due to overlap checks
+
+## DSL Syntax Quick Reference
+
+For full documentation, see README.md. Quick syntax overview:
+
+```clay
+# Comments
+node_id                          # Auto-generated label
+node_id "Custom Label"           # Explicit label
+node_id "Label" width=120        # With properties
+
+# Edges
+a -> b                           # Simple edge
+a -> b -> c                      # Chained edges
+
+# Settings
+@bbox 800 600                    # Target dimensions
+@verbose false                   # Suppress output
+@weight straightness 10          # Tune energy weights
+```
+
+**Common DSL modifications:**
+- Add node: Add line in nodes section, reference in edges
+- Add edge: Add `from -> to` line anywhere after nodes defined
+- Change layout: Modify `@bbox` or `@weight` settings
+- Change labels: Update quoted strings after node IDs
+
+## Public API Surface
+
+See `clay/__init__.py` for exported functions:
+
+**High-level (recommended):**
+- `render_from_file(input_file, output_file)` - Complete workflow
+
+**DSL functions:**
+- `layout_from_text(text)` - Parse DSL text, return positions
+- `layout_from_file(path)` - Parse .clay file, return positions
+
+**Low-level:**
+- `Node(label, width, height, fontsize)` - Node data class
+- `layout_graph(nodes, edges, target_bbox)` - Core optimizer
+- `render_graph_matplotlib(...)` - PNG renderer
+- `render_graph_svg(...)` - SVG renderer
