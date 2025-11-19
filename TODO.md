@@ -14,6 +14,7 @@
 <!-- Features, improvements, and technical debt -->
 - [ ] Solve edge-to-edge intersections (edges crossing other edges)
 - [ ] Solve edge-to-node intersections (edges crossing through nodes)
+- [ ] Prefer LR or TD edge angles using a force (directional bias for layout)
 
 ## Ideas / Future
 <!-- Experimental features and long-term possibilities -->
