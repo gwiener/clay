@@ -12,6 +12,50 @@ The project provides:
 3. **CLI tool** - Command-line interface via `python -m clay`
 4. **Examples** - 9 `.clay` example files demonstrating various patterns
 
+## Task Management (TODO.md)
+
+**IMPORTANT**: Always maintain `TODO.md` to track work and provide continuity across sessions.
+
+### When to Update TODO.md
+
+1. **User adds a task**: When the user says "add to TODO" or requests a future task
+   - Add to appropriate section (Next Up, Backlog, or Ideas/Future)
+   - Use markdown checkboxes: `- [ ] Task description`
+
+2. **Starting work on a task**: When beginning implementation
+   - Move task from its section to "In Progress"
+   - Keep only actively worked tasks in "In Progress" (1-3 items max)
+
+3. **Completing a task**: When finishing implementation and committing
+   - Move task to "Done (Recent)" with completion date
+   - Format: `- [x] Task description (YYYY-MM-DD)`
+   - Keep ~10 most recent completed tasks for context
+
+4. **User asks about tasks**: When user asks "what's next?" or "what should we work on?"
+   - Read TODO.md and present current tasks
+   - Suggest prioritization based on "Next Up" section
+
+### Task Organization
+
+- **In Progress**: Currently being worked on (limit 1-3)
+- **Next Up (High Priority)**: Clear next steps, ready to implement
+- **Backlog**: Important but not urgent
+- **Ideas / Future**: Experimental, research, or long-term features
+- **Done (Recent)**: Last ~10 completed tasks with dates
+
+### Example Workflow
+
+```markdown
+# User: "Add support for colored nodes to the TODO"
+# Claude: Adds to TODO.md Backlog section
+
+# User: "Let's implement colored nodes"
+# Claude: Moves task to "In Progress", begins implementation
+
+# User: "Commit that work"
+# Claude: After commit, moves task to "Done (Recent)" with date
+```
+
 ## Development Setup
 
 ```bash
@@ -212,6 +256,7 @@ output/                      # Rendered diagrams (gitignored)
 pyproject.toml               # Dependencies (numpy, scipy, matplotlib)
 README.md                    # User documentation (see for API details)
 CLAUDE.md                    # This file - development guidance
+TODO.md                      # Task tracking and work-in-progress
 BUILD_SUMMARY.md             # Development notes and analysis
 ```
 
