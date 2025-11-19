@@ -6,7 +6,6 @@
 ## Next Up (High Priority)
 <!-- Important tasks with clear next steps -->
 - [ ] Add unit tests for layout engine
-- [ ] Add parser tests for DSL parsing
 - [ ] Check CLI support for weight overrides (@weight directives)
 - [ ] Check node sizing behavior and accuracy
 
@@ -21,3 +20,4 @@
 
 ## Done (Recent)
 <!-- Completed tasks with dates for context -->
+- [x] Add parser tests for DSL parsing (2025-11-19)

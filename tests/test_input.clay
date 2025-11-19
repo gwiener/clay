@@ -1,0 +1,30 @@
+# Test input file for parser
+# Contains examples of all DSL statement types
+
+# Simple node (auto-generated label)
+simple_node
+
+# Node with custom label
+labeled_node "Custom Label"
+
+# Node with properties
+sized_node "Sized Node" width=120 height=60
+
+# Node with multiple properties
+fancy_node "Fancy" width=150 height=50 fontsize=14
+
+# Simple edges
+simple_node -> labeled_node
+labeled_node -> sized_node
+
+# Chained edges
+sized_node -> fancy_node -> end_node
+
+# Node declared after being referenced (should work)
+end_node "End"
+
+# Graph settings
+@bbox 1000 800
+@verbose false
+@weight straightness 8
+@weight edge_length 12
