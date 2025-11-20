@@ -13,6 +13,7 @@
 <!-- Features, improvements, and technical debt -->
 - [ ] Experiment with node-edge weight
 - [ ] Code cleanup
+- [ ] Add linter and type checker and add running them to the permanent instructions file
 - [ ] Solve edge-to-edge intersections (edges crossing other edges)
 - [ ] Prefer LR or TD edge angles using a force (directional bias for layout)
 
