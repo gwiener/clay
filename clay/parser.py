@@ -315,6 +315,8 @@ def layout_from_text(
     clay_text: str,
     target_bbox: Optional[Tuple[float, float]] = None,
     verbose: Optional[bool] = None,
+    init_mode: Optional[str] = None,
+    seed: Optional[int] = None,
     **weight_overrides
 ) -> Dict[str, Tuple[float, float]]:
     """
@@ -324,6 +326,8 @@ def layout_from_text(
         clay_text: Multi-line string containing Clay DSL
         target_bbox: Override target bounding box (default: from DSL or (800, 600))
         verbose: Override verbose setting (default: from DSL or True)
+        init_mode: Override initialization mode (default: from DSL or 'spring')
+        seed: Override random seed (default: from DSL or None)
         **weight_overrides: Override specific weights (e.g., straightness=10)
 
     Returns:
@@ -349,6 +353,10 @@ def layout_from_text(
         graph_settings['target_bbox'] = target_bbox
     if verbose is not None:
         graph_settings['verbose'] = verbose
+    if init_mode is not None:
+        graph_settings['init_mode'] = init_mode
+    if seed is not None:
+        graph_settings['seed'] = seed
 
     # Merge weight overrides
     graph_settings['weights'].update(weight_overrides)
@@ -364,7 +372,9 @@ def layout_from_text(
         nodes_dict,
         edges,
         target_bbox=graph_settings['target_bbox'],
-        verbose=graph_settings['verbose']
+        verbose=graph_settings['verbose'],
+        init_mode=graph_settings.get('init_mode', 'spring'),
+        seed=graph_settings.get('seed', None)
     )
 
     return result.positions
@@ -374,6 +384,8 @@ def layout_from_file(
     file_path: str,
     target_bbox: Optional[Tuple[float, float]] = None,
     verbose: Optional[bool] = None,
+    init_mode: Optional[str] = None,
+    seed: Optional[int] = None,
     **weight_overrides
 ) -> Dict[str, Tuple[float, float]]:
     """
@@ -383,6 +395,8 @@ def layout_from_file(
         file_path: Path to .clay file
         target_bbox: Override target bounding box
         verbose: Override verbose setting
+        init_mode: Override initialization mode ('spring', 'grid', 'random')
+        seed: Override random seed
         **weight_overrides: Override specific weights
 
     Returns:
@@ -398,7 +412,7 @@ def layout_from_file(
 
     clay_text = path.read_text(encoding='utf-8')
 
-    return layout_from_text(clay_text, target_bbox, verbose, **weight_overrides)
+    return layout_from_text(clay_text, target_bbox, verbose, init_mode, seed, **weight_overrides)
 
 
 def render_from_file(
@@ -406,6 +420,8 @@ def render_from_file(
     output_file: str,
     target_bbox: Optional[Tuple[float, float]] = None,
     verbose: Optional[bool] = None,
+    init_mode: Optional[str] = None,
+    seed: Optional[int] = None,
     **weight_overrides
 ):
     """
@@ -418,6 +434,8 @@ def render_from_file(
         output_file: Path to output file (.png or .svg)
         target_bbox: Override target bounding box
         verbose: Override verbose setting
+        init_mode: Override initialization mode ('spring', 'grid', 'random')
+        seed: Override random seed
         **weight_overrides: Override specific weights
 
     Returns:
@@ -463,6 +481,10 @@ def render_from_file(
         graph_settings['target_bbox'] = target_bbox
     if verbose is not None:
         graph_settings['verbose'] = verbose
+    if init_mode is not None:
+        graph_settings['init_mode'] = init_mode
+    if seed is not None:
+        graph_settings['seed'] = seed
     graph_settings['weights'].update(weight_overrides)
 
     # Build nodes dict and compute layout
@@ -473,7 +495,9 @@ def render_from_file(
         nodes_dict,
         edges,
         target_bbox=graph_settings['target_bbox'],
-        verbose=graph_settings['verbose']
+        verbose=graph_settings['verbose'],
+        init_mode=graph_settings.get('init_mode', 'spring'),
+        seed=graph_settings.get('seed', None)
     )
 
     # Render to appropriate format

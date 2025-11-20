@@ -26,6 +26,7 @@ class LayoutStats:
     weights: Dict[str, float]
     target_bbox: Tuple[float, float]
     message: str
+    seed: Optional[int]  # Random seed used for initialization (None = non-deterministic)
 
 
 @dataclass
@@ -215,6 +216,121 @@ def point_to_line_distance(
 
     # Distance from point to its projection
     return np.linalg.norm(point - point_projected)
+
+
+# ============================================================================
+# INITIALIZATION STRATEGIES
+# ============================================================================
+
+def simple_spring_layout(
+    edges: List[Tuple[int, int]],
+    n: int,
+    target_bbox: Tuple[float, float],
+    iterations: int = 50,
+    seed: Optional[int] = None
+) -> np.ndarray:
+    """
+    Lightweight force-directed layout using Fruchterman-Reingold-style algorithm.
+
+    Implements a simple spring/force-directed layout to generate better initial
+    positions than a rigid grid. Connected nodes attract each other (spring forces),
+    while all nodes repel each other (electrostatic forces).
+
+    This provides structure-aware initialization that:
+    - Places connected nodes closer together
+    - Spreads unconnected nodes apart
+    - Breaks symmetry that causes optimizer failures
+    - Gives L-BFGS-B a much better starting point
+
+    Args:
+        edges: List of (from_idx, to_idx) tuples using node indices
+        n: Number of nodes
+        target_bbox: (width, height) for scaling output
+        iterations: Number of force-directed iterations (default: 50)
+        seed: Random seed for reproducibility (None = non-deterministic)
+
+    Returns:
+        Array of shape (n, 2) with (x, y) positions scaled to target_bbox
+
+    Algorithm:
+        1. Initialize nodes randomly in center region
+        2. For each iteration:
+           - Compute repulsive forces between all node pairs
+           - Compute attractive forces along edges
+           - Update positions with damped force application
+        3. Scale positions to fit target_bbox with margins
+
+    Complexity: O(iterations * (n^2 + m)) where m = number of edges
+    """
+    if seed is not None:
+        np.random.seed(seed)
+
+    # Initialize positions randomly near center
+    # Use 20% of smaller bbox dimension as initial spread
+    center = np.array(target_bbox) / 2
+    spread = min(target_bbox) * 0.2
+    pos = center + np.random.randn(n, 2) * spread
+
+    # Force-directed iterations
+    k_repel = 1000.0  # Repulsion strength
+    k_attract = 0.1   # Spring constant for edges
+    damping = 0.01    # Step size (prevent oscillation)
+
+    for _ in range(iterations):
+        forces = np.zeros((n, 2))
+
+        # Repulsive forces between all pairs (inverse square law)
+        for i in range(n):
+            for j in range(i + 1, n):
+                delta = pos[i] - pos[j]
+                dist = np.linalg.norm(delta)
+
+                if dist > 0.01:  # Avoid division by zero
+                    # Force magnitude inversely proportional to distance squared
+                    force_mag = k_repel / (dist ** 2)
+                    force_dir = delta / dist
+
+                    forces[i] += force_mag * force_dir
+                    forces[j] -= force_mag * force_dir
+
+        # Attractive forces along edges (Hooke's law)
+        for u, v in edges:
+            delta = pos[v] - pos[u]
+            dist = np.linalg.norm(delta)
+
+            if dist > 0.01:
+                # Spring force proportional to distance
+                force_mag = k_attract * dist
+                force_dir = delta / dist
+
+                forces[u] += force_mag * force_dir
+                forces[v] -= force_mag * force_dir
+
+        # Update positions with damping
+        pos += forces * damping
+
+    # Scale positions to fit target_bbox with margins
+    # Add 10% margin on each side
+    margin_factor = 0.1
+
+    # Find current bounds
+    min_pos = np.min(pos, axis=0)
+    max_pos = np.max(pos, axis=0)
+    current_size = max_pos - min_pos
+
+    # Avoid division by zero if all nodes at same position
+    current_size = np.maximum(current_size, 1.0)
+
+    # Scale to fit within (1-2*margin) of target_bbox
+    scale_factor = np.array(target_bbox) * (1 - 2 * margin_factor) / current_size
+    scale = min(scale_factor)  # Uniform scaling to maintain aspect ratio
+
+    # Center in target_bbox
+    pos_scaled = (pos - min_pos) * scale
+    offset = (np.array(target_bbox) - (max_pos - min_pos) * scale) / 2
+    pos_final = pos_scaled + offset
+
+    return pos_final
 
 
 # ============================================================================
@@ -510,7 +626,9 @@ def layout_graph(
     nodes_dict: Dict[str, Node],
     edges: List[Tuple[str, str]],
     target_bbox: Tuple[float, float] = (800, 600),
-    verbose: bool = True
+    verbose: bool = True,
+    init_mode: str = 'spring',
+    seed: Optional[int] = None
 ) -> LayoutResult:
     """
     Layout a graph using constrained optimization.
@@ -520,6 +638,8 @@ def layout_graph(
         edges: list of (from_id, to_id) tuples
         target_bbox: (width, height) tuple for bounding box
         verbose: print optimization progress
+        init_mode: initialization strategy ('spring', 'grid', 'random')
+        seed: random seed for reproducibility (None = non-deterministic)
 
     Returns:
         LayoutResult containing positions and optimization statistics
@@ -546,25 +666,45 @@ def layout_graph(
             penalty_breakdown={},
             weights={},
             target_bbox=target_bbox,
-            message="Empty graph"
+            message="Empty graph",
+            seed=seed
         )
         return LayoutResult(positions={}, stats=empty_stats)
 
-    # Initial layout - simple grid
-    grid_size = int(np.ceil(np.sqrt(n)))
-    x0 = np.zeros((n, 2))
-    spacing_x = target_bbox[0] / (grid_size + 1)
-    spacing_y = target_bbox[1] / (grid_size + 1)
-
-    for i in range(n):
-        x0[i] = [
-            (i % grid_size + 1) * spacing_x,
-            (i // grid_size + 1) * spacing_y
-        ]
+    # Generate initial positions based on init_mode
+    if init_mode == 'spring':
+        # Force-directed pre-layout
+        x0 = simple_spring_layout(edges_idx, n, target_bbox, iterations=50, seed=seed)
+        init_desc = "force-directed"
+    elif init_mode == 'random':
+        # Random uniform positions
+        if seed is not None:
+            np.random.seed(seed)
+        x0 = np.random.uniform(
+            low=[20, 20],
+            high=[target_bbox[0] - 20, target_bbox[1] - 20],
+            size=(n, 2)
+        )
+        init_desc = "random"
+    elif init_mode == 'grid':
+        # Simple grid layout (original approach)
+        grid_size = int(np.ceil(np.sqrt(n)))
+        x0 = np.zeros((n, 2))
+        spacing_x = target_bbox[0] / (grid_size + 1)
+        spacing_y = target_bbox[1] / (grid_size + 1)
+        for i in range(n):
+            x0[i] = [
+                (i % grid_size + 1) * spacing_x,
+                (i // grid_size + 1) * spacing_y
+            ]
+        init_desc = "grid"
+    else:
+        raise ValueError(f"Unknown init_mode: {init_mode}. Use 'spring', 'grid', or 'random'.")
 
     if verbose:
         print(f"Laying out {n} nodes with {len(edges)} edges...")
         print(f"Target bounding box: {target_bbox[0]}x{target_bbox[1]}")
+        print(f"Initialization: {init_desc}" + (f" (seed={seed})" if seed is not None else ""))
 
     # Optimize
     result = minimize(
@@ -617,7 +757,8 @@ def layout_graph(
         penalty_breakdown=penalty_breakdown,
         weights=weights,
         target_bbox=target_bbox,
-        message=result.message
+        message=result.message,
+        seed=seed
     )
 
     return LayoutResult(positions=positions_dict, stats=stats)

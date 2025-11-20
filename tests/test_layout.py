@@ -242,3 +242,116 @@ class TestLayoutGraph:
         assert result.stats.iterations == 0, "No iterations for empty graph"
         assert result.stats.final_energy == 0.0, "Zero energy for empty graph"
         assert len(result.positions) == 0, "No positions for empty graph"
+
+
+class TestInitializationModes:
+    """Tests for different initialization strategies and seed control."""
+
+    def test_spring_initialization_mode(self):
+        """Force-directed initialization should work and produce valid layout."""
+        nodes = {
+            'a': Node('A', width=40, height=20),
+            'b': Node('B', width=40, height=20),
+            'c': Node('C', width=40, height=20),
+        }
+        edges = [('a', 'b'), ('b', 'c')]
+
+        result = layout_graph(nodes, edges, init_mode='spring', seed=42, verbose=False)
+
+        assert isinstance(result, LayoutResult), "Should return LayoutResult"
+        assert len(result.positions) == 3, "Should have 3 node positions"
+        assert result.stats.seed == 42, "Should record seed in stats"
+
+    def test_grid_initialization_mode(self):
+        """Grid initialization should work (original behavior)."""
+        nodes = {
+            'a': Node('A', width=40, height=20),
+            'b': Node('B', width=40, height=20),
+            'c': Node('C', width=40, height=20),
+        }
+        edges = [('a', 'b'), ('b', 'c')]
+
+        result = layout_graph(nodes, edges, init_mode='grid', verbose=False)
+
+        assert isinstance(result, LayoutResult), "Should return LayoutResult"
+        assert len(result.positions) == 3, "Should have 3 node positions"
+
+    def test_random_initialization_mode(self):
+        """Random initialization should work with seed control."""
+        nodes = {
+            'a': Node('A', width=40, height=20),
+            'b': Node('B', width=40, height=20),
+        }
+        edges = [('a', 'b')]
+
+        result = layout_graph(nodes, edges, init_mode='random', seed=123, verbose=False)
+
+        assert isinstance(result, LayoutResult), "Should return LayoutResult"
+        assert len(result.positions) == 2, "Should have 2 node positions"
+        assert result.stats.seed == 123, "Should record seed in stats"
+
+    def test_seed_reproducibility(self):
+        """Same seed should produce identical layouts."""
+        nodes = {
+            'a': Node('A', width=40, height=20),
+            'b': Node('B', width=40, height=20),
+            'c': Node('C', width=40, height=20),
+        }
+        edges = [('a', 'b'), ('b', 'c')]
+
+        result1 = layout_graph(nodes, edges, init_mode='spring', seed=42, verbose=False)
+        result2 = layout_graph(nodes, edges, init_mode='spring', seed=42, verbose=False)
+
+        # Check that positions are identical
+        for node_id in nodes.keys():
+            pos1 = result1.positions[node_id]
+            pos2 = result2.positions[node_id]
+            assert np.allclose(pos1, pos2), f"Positions for {node_id} should be identical with same seed"
+
+        # Check that energies are identical
+        assert result1.stats.final_energy == result2.stats.final_energy, "Final energies should be identical"
+
+    def test_different_seeds_produce_different_layouts(self):
+        """Different seeds should produce different layouts."""
+        nodes = {
+            'a': Node('A', width=40, height=20),
+            'b': Node('B', width=40, height=20),
+            'c': Node('C', width=40, height=20),
+        }
+        edges = [('a', 'b'), ('b', 'c')]
+
+        result1 = layout_graph(nodes, edges, init_mode='spring', seed=1, verbose=False)
+        result2 = layout_graph(nodes, edges, init_mode='spring', seed=2, verbose=False)
+
+        # At least one position should be different
+        positions_differ = False
+        for node_id in nodes.keys():
+            pos1 = result1.positions[node_id]
+            pos2 = result2.positions[node_id]
+            if not np.allclose(pos1, pos2):
+                positions_differ = True
+                break
+
+        assert positions_differ, "Different seeds should produce different layouts"
+
+    def test_seed_recorded_in_stats(self):
+        """Seed value should be recorded in stats for traceability."""
+        nodes = {'a': Node('A', width=40, height=20)}
+        edges = []
+
+        result_with_seed = layout_graph(nodes, edges, seed=999, verbose=False)
+        result_without_seed = layout_graph(nodes, edges, seed=None, verbose=False)
+
+        assert result_with_seed.stats.seed == 999, "Seed should be recorded when provided"
+        assert result_without_seed.stats.seed is None, "Seed should be None when not provided"
+
+    def test_invalid_init_mode_raises_error(self):
+        """Invalid initialization mode should raise ValueError."""
+        nodes = {'a': Node('A', width=40, height=20)}
+        edges = []
+
+        try:
+            layout_graph(nodes, edges, init_mode='invalid', verbose=False)
+            assert False, "Should have raised ValueError for invalid init_mode"
+        except ValueError as e:
+            assert 'Unknown init_mode' in str(e), "Error message should mention invalid init_mode"

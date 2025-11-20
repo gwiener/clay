@@ -50,6 +50,21 @@ def main() -> int:
         help='Output optimization statistics. If FILE provided, saves to file; otherwise prints to stdout'
     )
 
+    parser.add_argument(
+        '--init',
+        type=str,
+        choices=['spring', 'grid', 'random'],
+        default='spring',
+        help='Initialization strategy: spring (force-directed), grid (regular grid), or random (default: spring)'
+    )
+
+    parser.add_argument(
+        '--seed',
+        type=int,
+        default=None,
+        help='Random seed for reproducibility (default: None = non-deterministic)'
+    )
+
     args = parser.parse_args()
 
     # Determine output file path
@@ -63,7 +78,12 @@ def main() -> int:
 
     # Render the diagram
     try:
-        result = render_from_file(args.input_file, output_file)
+        result = render_from_file(
+            args.input_file,
+            output_file,
+            init_mode=args.init,
+            seed=args.seed
+        )
         print(f"✓ Rendered {args.input_file} → {output_file}")
 
         # Handle stats output if requested
