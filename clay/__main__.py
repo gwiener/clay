@@ -88,13 +88,33 @@ def main() -> int:
 
         # Handle stats output if requested
         if args.stats_file is not None:
-            stats_json = json.dumps(asdict(result.stats), indent=2)
-
             if args.stats_file == '':
-                # Print to stdout
-                print("\n" + stats_json)
+                # Print human-readable format to stdout
+                print("\n" + "=" * 70)
+                print("OPTIMIZATION STATISTICS")
+                print("=" * 70)
+                print(f"Status: {'SUCCESS' if result.stats.success else 'FAILED'}")
+                print(f"Iterations: {result.stats.iterations}")
+                print(f"Function evaluations: {result.stats.function_evals}")
+                print(f"Final energy: {result.stats.final_energy:.2f}")
+                print(f"\nPenalty Breakdown (raw × weight = contribution):")
+                print("-" * 70)
+
+                total_check = 0.0
+                for name, raw_value in result.stats.penalty_breakdown.items():
+                    weight = result.stats.weights[name]
+                    contribution = raw_value * weight
+                    total_check += contribution
+
+                    # Format: align columns nicely
+                    print(f"  {name:15s}: {raw_value:12.4f} × {weight:4d} = {contribution:12.2f}")
+
+                print("-" * 70)
+                print(f"  {'Total':15s}: {'':<12s}   {'':<4s}   {total_check:12.2f}")
+                print("=" * 70)
             else:
-                # Save to file
+                # Save JSON to file
+                stats_json = json.dumps(asdict(result.stats), indent=2)
                 stats_path = Path(args.stats_file)
                 stats_path.write_text(stats_json, encoding='utf-8')
                 print(f"✓ Stats saved to {args.stats_file}")

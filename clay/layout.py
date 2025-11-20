@@ -378,41 +378,57 @@ def overlap_penalty(positions: np.ndarray, nodes: List[Node]) -> float:
 
 def edge_length_penalty(
     positions: np.ndarray,
-    edges: List[Tuple[int, int]]
+    edges: List[Tuple[int, int]],
+    target_bbox: Tuple[float, float]
 ) -> float:
     """
     Penalize long edges (encourages connected nodes to be close).
 
+    Normalized by target_bbox diagonal to make penalty scale-invariant.
+
     Args:
         positions: array of shape (n, 2)
         edges: list of (from_idx, to_idx) tuples
+        target_bbox: (width, height) tuple for normalization
 
     Returns:
-        penalty value (float)
+        penalty value (float), normalized to [0, 1] range approximately
     """
+    if len(edges) == 0:
+        return 0.0
+
+    # Normalize distances by diagonal of target bbox
+    diagonal = np.sqrt(target_bbox[0]**2 + target_bbox[1]**2)
+
     total = 0
     for (u, v) in edges:
         dist = np.linalg.norm(positions[v] - positions[u])
-        total += dist ** 2
+        normalized_dist = dist / diagonal
+        total += normalized_dist ** 2
+
     return total
 
 
 def straightness_penalty(
     positions: np.ndarray,
     edges: List[Tuple[int, int]],
-    nodes: List[Node]
+    nodes: List[Node],
+    target_bbox: Tuple[float, float]
 ) -> float:
     """
     Penalize non-straight paths through nodes.
     For any path A->B->C, penalizes if B is not collinear with A and C.
 
+    Normalized by target_bbox diagonal to make penalty scale-invariant.
+
     Args:
         positions: array of shape (n, 2)
         edges: list of (from_idx, to_idx) tuples
         nodes: list of Node objects
+        target_bbox: (width, height) tuple for normalization
 
     Returns:
-        penalty value (float)
+        penalty value (float), normalized to [0, 1] range approximately
     """
     penalty = 0
 
@@ -422,6 +438,9 @@ def straightness_penalty(
     for (u, v) in edges:
         outgoing[u].append(v)
         incoming[v].append(u)
+
+    # Normalize distances by diagonal of target bbox
+    diagonal = np.sqrt(target_bbox[0]**2 + target_bbox[1]**2)
 
     # For each node B with both incoming and outgoing edges
     for B_idx in range(len(nodes)):
@@ -433,7 +452,8 @@ def straightness_penalty(
                     positions[A_idx],
                     positions[C_idx]
                 )
-                penalty += dist ** 2
+                normalized_dist = dist / diagonal
+                penalty += normalized_dist ** 2
 
     return penalty
 
@@ -550,19 +570,26 @@ def bounding_box_penalty(
     return width_penalty + height_penalty
 
 
-def area_penalty(positions: np.ndarray, nodes: List[Node]) -> float:
+def area_penalty(
+    positions: np.ndarray,
+    nodes: List[Node],
+    target_bbox: Tuple[float, float]
+) -> float:
     """
     Penalize large bounding box area (encourages compactness).
+
+    Normalized by target_bbox area to make penalty scale-invariant.
 
     Args:
         positions: array of shape (n, 2)
         nodes: list of Node objects
+        target_bbox: (width, height) tuple for normalization
 
     Returns:
-        penalty value (float)
+        penalty value (float), normalized to [0, 1] range approximately
     """
     if len(positions) == 0:
-        return 0
+        return 0.0
 
     # Calculate bounding box
     min_x = min(positions[i][0] - nodes[i].width/2 for i in range(len(nodes)))
@@ -571,7 +598,12 @@ def area_penalty(positions: np.ndarray, nodes: List[Node]) -> float:
     max_y = max(positions[i][1] + nodes[i].height/2 for i in range(len(nodes)))
 
     area = (max_x - min_x) * (max_y - min_y)
-    return area
+
+    # Normalize by target bbox area
+    target_area = target_bbox[0] * target_bbox[1]
+    normalized_area = area / target_area
+
+    return normalized_area
 
 
 # ============================================================================
@@ -609,11 +641,11 @@ def energy_function(
     W_AREA = 1             # Minimize total area
 
     E += W_OVERLAP * overlap_penalty(positions, nodes)
-    E += W_EDGE_LENGTH * edge_length_penalty(positions, edges)
-    E += W_STRAIGHTNESS * straightness_penalty(positions, edges, nodes)
+    E += W_EDGE_LENGTH * edge_length_penalty(positions, edges, target_bbox)
+    E += W_STRAIGHTNESS * straightness_penalty(positions, edges, nodes, target_bbox)
     E += W_EDGE_NODE * edge_node_intersection_penalty(positions, edges, nodes)
     E += W_BBOX * bounding_box_penalty(positions, nodes, target_bbox)
-    E += W_AREA * area_penalty(positions, nodes)
+    E += W_AREA * area_penalty(positions, nodes, target_bbox)
 
     return E
 
@@ -741,11 +773,11 @@ def layout_graph(
 
     penalty_breakdown = {
         'overlap': overlap_penalty(positions_array, nodes_list),
-        'edge_length': edge_length_penalty(positions_array, edges_idx),
-        'straightness': straightness_penalty(positions_array, edges_idx, nodes_list),
+        'edge_length': edge_length_penalty(positions_array, edges_idx, target_bbox),
+        'straightness': straightness_penalty(positions_array, edges_idx, nodes_list, target_bbox),
         'edge_node': edge_node_intersection_penalty(positions_array, edges_idx, nodes_list),
         'bbox': bounding_box_penalty(positions_array, nodes_list, target_bbox),
-        'area': area_penalty(positions_array, nodes_list)
+        'area': area_penalty(positions_array, nodes_list, target_bbox)
     }
 
     # Create stats object
