@@ -12,13 +12,20 @@ The project provides:
 3. **CLI tool** - Command-line interface via `python -m clay`
 4. **Examples** - 9 `.clay` example files demonstrating various patterns
 
-## Task Management (TODO.md)
+## Task Management
 
-**IMPORTANT**: Always maintain `TODO.md` to track work and provide continuity across sessions.
+### BACKLOG.md (Project-Level Tasks)
 
-### When to Update TODO.md
+**IMPORTANT**: Always maintain `BACKLOG.md` to track work and provide continuity across sessions.
 
-1. **User adds a task**: When the user says "add to TODO" or requests a future task
+This is the **persistent project backlog** - use terminology like:
+- "add this to the backlog"
+- "show me the backlog"
+- "what's in the backlog?"
+
+#### When to Update BACKLOG.md
+
+1. **User adds a task**: When the user says "add to backlog" or requests a future task
    - Add to appropriate section (Next Up, Backlog, or Ideas/Future)
    - Use markdown checkboxes: `- [ ] Task description`
 
@@ -31,11 +38,11 @@ The project provides:
    - Format: `- [x] Task description (YYYY-MM-DD)`
    - Keep ~10 most recent completed tasks for context
 
-4. **User asks about tasks**: When user asks "what's next?" or "what should we work on?"
-   - Read TODO.md and present current tasks
+4. **User asks about tasks**: When user asks "what's next?" or "show me the backlog"
+   - Read BACKLOG.md and present current tasks
    - Suggest prioritization based on "Next Up" section
 
-### Task Organization
+#### Task Organization
 
 - **In Progress**: Currently being worked on (limit 1-3)
 - **Next Up (High Priority)**: Clear next steps, ready to implement
@@ -43,18 +50,22 @@ The project provides:
 - **Ideas / Future**: Experimental, research, or long-term features
 - **Done (Recent)**: Last ~10 completed tasks with dates
 
-### Example Workflow
+#### Example Workflow
 
 ```markdown
-# User: "Add support for colored nodes to the TODO"
-# Claude: Adds to TODO.md Backlog section
+# User: "Add support for colored nodes to the backlog"
+# Claude: Adds to BACKLOG.md Backlog section
 
 # User: "Let's implement colored nodes"
-# Claude: Moves task to "In Progress", begins implementation
+# Claude: Moves task to "In Progress" in BACKLOG.md, begins implementation
 
 # User: "Commit that work"
-# Claude: After commit, moves task to "Done (Recent)" with date
+# Claude: After commit, moves task to "Done (Recent)" in BACKLOG.md with date
 ```
+
+### Session Task List (Ephemeral)
+
+Separate from BACKLOG.md, Claude uses an internal **TodoWrite tool** to track tasks during the current session only. This is ephemeral and not persisted to any file. Users will see this displayed while work is in progress.
 
 ## Development Setup
 
@@ -256,7 +267,7 @@ output/                      # Rendered diagrams (gitignored)
 pyproject.toml               # Dependencies (numpy, scipy, matplotlib)
 README.md                    # User documentation (see for API details)
 CLAUDE.md                    # This file - development guidance
-TODO.md                      # Task tracking and work-in-progress
+BACKLOG.md                   # Project backlog and work-in-progress
 BUILD_SUMMARY.md             # Development notes and analysis
 ```
 
