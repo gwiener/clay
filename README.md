@@ -167,16 +167,16 @@ python -m clay diagram.clay -s stats.json
 ```json
 {
   "success": true,
-  "iterations": 49,
-  "function_evals": 2044,
-  "final_energy": 30206.85,
+  "iterations": 15,
+  "function_evals": 1560,
+  "final_energy": 5.53,
   "penalty_breakdown": {
-    "overlap": 0.0008,
-    "edge_length": 2606.89,
-    "straightness": 332.56,
+    "overlap": 0.0,
+    "edge_length": 0.4745,
+    "straightness": 0.0847,
     "edge_node": 0.0,
-    "bbox": 0,
-    "area": 2474.42
+    "bbox": 0.0,
+    "area": 0.3631
   },
   "weights": {
     "overlap": 1000,
@@ -186,18 +186,26 @@ python -m clay diagram.clay -s stats.json
     "bbox": 100,
     "area": 1
   },
-  "target_bbox": [600.0, 400.0],
-  "message": "CONVERGENCE: RELATIVE REDUCTION OF F <= FACTR*EPSMCH"
+  "target_bbox": [800.0, 600.0],
+  "message": "CONVERGENCE: REL_REDUCTION_OF_F <= FACTR*EPSMCH",
+  "seed": null
 }
 ```
 
 **Understanding the stats:**
+- `success`: Whether optimization converged successfully
 - `iterations`: Number of optimization steps taken
 - `function_evals`: Total energy function calls (includes gradient estimation)
 - `final_energy`: Total weighted energy at solution
-- `penalty_breakdown`: Raw penalty values before weighting
-- `weights`: Multipliers applied to each penalty
+- `penalty_breakdown`: **Normalized** penalty values (scale-invariant, typically 0-2 range)
+- `weights`: Multipliers applied to each penalty component
+- `target_bbox`: Coordinate system dimensions used for layout
+- `seed`: Random seed used for initialization (null = non-deterministic)
 - `message`: Optimizer termination reason
+
+**Note:** Penalty values are normalized by bounding box dimensions to ensure
+scale-invariant optimization. Edge length and straightness are normalized by
+diagonal length; area is normalized by target area.
 
 **Available weights:**
 - `straightness` - Encourages collinear A→B→C paths (default: 5)

@@ -114,12 +114,13 @@ Core layout engine (~580 lines) with distinct sections:
    - `rect_edge_point()`: Arrow connection points on rectangle boundaries
    - `point_to_line_distance()`: Measures deviation from collinearity
 
-3. **Energy Function Components**
+3. **Energy Function Components** (all normalized for scale-invariance)
    - `overlap_penalty()`: Prevents node overlap (weight: 1000)
-   - `edge_length_penalty()`: Keeps connected nodes close (weight: 10)
-   - `straightness_penalty()`: Encourages A→B→C collinearity (weight: 5) - **KEY INNOVATION**
+   - `edge_length_penalty()`: Keeps connected nodes close (weight: 10) - **normalized by bbox diagonal**
+   - `straightness_penalty()`: Encourages A→B→C collinearity (weight: 5) - **KEY INNOVATION** - **normalized by bbox diagonal**
+   - `edge_node_intersection_penalty()`: Prevents edges crossing through nodes (weight: 200)
    - `bounding_box_penalty()`: Constrains diagram size (weight: 100)
-   - `area_penalty()`: Minimizes layout area (weight: 1)
+   - `area_penalty()`: Minimizes layout area (weight: 1) - **normalized by bbox area**
 
 4. **Main Functions**
    - `energy_function()`: Combines all penalties with tunable weights
@@ -192,11 +193,16 @@ Energy weights are defined in `energy_function()` in `clay/layout.py`:
 W_OVERLAP = 1000      # Hard constraint - keep high
 W_EDGE_LENGTH = 10    # Higher = tighter clustering
 W_STRAIGHTNESS = 5    # Higher = straighter paths
+W_EDGE_NODE = 200     # Prevent edges crossing nodes
 W_BBOX = 100          # Higher = stricter size limit
 W_AREA = 1            # Higher = more compact
 ```
 
 Users can override via DSL: `@weight straightness 10`
+
+**Important:** All distance-based penalties (edge_length, straightness) are normalized
+by the target bounding box diagonal, and area_penalty is normalized by target bbox area.
+This ensures scale-invariant optimization regardless of coordinate system size.
 
 ### Creating Custom Diagrams
 
