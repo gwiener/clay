@@ -19,6 +19,7 @@
 
 ## Done (Recent)
 <!-- Completed tasks with dates for context -->
+- [x] Fix energy function scale issues by normalizing penalties (2025-11-20)
 - [x] Implement force-directed initialization with seed control (2025-11-20)
 - [x] Add layout stats collection and CLI output with --stats flag (2025-11-19)
 - [x] Implement edge-node intersection penalty (2025-11-19)
