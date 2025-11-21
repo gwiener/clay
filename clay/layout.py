@@ -42,21 +42,24 @@ def measure_text_in_data_coords(
     target_bbox: Tuple[float, float] = (800, 600)
 ) -> Tuple[float, float]:
     """
-    Measure text dimensions in data coordinates.
+    Measure text dimensions in data coordinates (font points).
 
     This function properly converts text dimensions from font units (points)
-    to data coordinates by actually rendering the text in a temporary figure.
+    to data coordinates by rendering text in a temporary figure with DPI=72.
+    This ensures 1 font point = 1 data coordinate unit = 1 pixel.
 
     Args:
         label: Text to measure
         fontsize: Font size in points
-        target_bbox: Target coordinate system (width, height)
+        target_bbox: Target coordinate system in font points (width, height)
 
     Returns:
-        (width, height) in data coordinates
+        (width, height) in data coordinates (font points)
     """
-    # Create temporary figure with known coordinate system
-    fig, ax = plt.subplots(figsize=(12, 8))
+    # Create temporary figure with DPI=72 for 1:1 font point mapping
+    dpi = 72
+    figsize = (target_bbox[0] / dpi, target_bbox[1] / dpi)
+    fig, ax = plt.subplots(figsize=figsize, dpi=dpi)
     ax.set_xlim(0, target_bbox[0])
     ax.set_ylim(0, target_bbox[1])
 
@@ -810,14 +813,23 @@ def render_graph_matplotlib(
     """
     Render graph using matplotlib.
 
+    Coordinate system uses font points (1/72 inch) as the unit. With DPI=72,
+    this creates a 1:1 mapping where 1 data unit = 1 font point = 1 pixel.
+    For example, a 800x600 target_bbox creates an 11.11x8.33 inch figure
+    rendered at 800x600 pixels.
+
     Args:
         nodes_dict: dict of {node_id: Node}
         edges: list of (from_id, to_id) tuples
         positions_dict: dict of {node_id: (x, y)}
         output_file: path to save image
-        target_bbox: coordinate system to use (should match what was used for layout)
+        target_bbox: coordinate system in font points (should match what was used for layout)
     """
-    fig, ax = plt.subplots(figsize=(12, 8))
+    # Use DPI=72 to align font points with data coordinates
+    # 1 font point = 1/72 inch, so at 72 DPI: 1 point = 1 pixel
+    dpi = 72
+    figsize = (target_bbox[0] / dpi, target_bbox[1] / dpi)
+    fig, ax = plt.subplots(figsize=figsize, dpi=dpi)
 
     # Draw edges first (so they're behind nodes)
     for (u_id, v_id) in edges:
@@ -890,7 +902,7 @@ def render_graph_matplotlib(
     ax.axis('off')
 
     plt.tight_layout()
-    plt.savefig(output_file, dpi=300, bbox_inches='tight')
+    plt.savefig(output_file, dpi=dpi, bbox_inches='tight')
     plt.close()
     print(f"✓ Graph saved to {output_file}")
 
