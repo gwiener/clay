@@ -80,6 +80,41 @@ print(f"Final energy: {result.stats.final_energy}")
 render_graph_matplotlib(nodes, edges, result.positions, 'my_graph.png')
 ```
 
+## Monitoring Optimization
+
+The `monitor_layout.py` script provides detailed insight into the optimization process:
+
+```bash
+# Monitor with iteration output
+python monitor_layout.py examples/simple.clay -o output/monitored.png
+
+# Quiet mode (summary only)
+python monitor_layout.py examples/workflow.clay -o output.png --quiet
+```
+
+Output includes:
+- Real-time iteration progress
+- Total iterations and position changes
+- Step size statistics (average, min, max)
+- Final energy and convergence status
+
+You can also use callbacks programmatically:
+
+```python
+from clay.layout import layout_graph
+
+class MyMonitor:
+    def __init__(self):
+        self.iteration = 0
+
+    def __call__(self, xk):
+        self.iteration += 1
+        print(f"Iteration {self.iteration}")
+
+monitor = MyMonitor()
+result = layout_graph(nodes, edges, callback=monitor)
+```
+
 ## Clay DSL Reference
 
 The Clay DSL provides a minimal, human-friendly syntax for defining diagrams.

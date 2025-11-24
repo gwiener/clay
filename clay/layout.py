@@ -6,7 +6,7 @@ Implements constrained optimization for compact, orderly diagram layouts.
 
 from collections import defaultdict
 from dataclasses import dataclass
-from typing import Dict, List, Tuple, Optional
+from typing import Dict, List, Tuple, Optional, Callable
 
 import numpy as np
 from scipy.optimize import minimize
@@ -663,7 +663,8 @@ def layout_graph(
     target_bbox: Tuple[float, float] = (800, 600),
     verbose: bool = True,
     init_mode: str = 'spring',
-    seed: Optional[int] = None
+    seed: Optional[int] = None,
+    callback: Optional[Callable[[np.ndarray], None]] = None
 ) -> LayoutResult:
     """
     Layout a graph using constrained optimization.
@@ -675,6 +676,7 @@ def layout_graph(
         verbose: print optimization progress
         init_mode: initialization strategy ('spring', 'grid', 'random')
         seed: random seed for reproducibility (None = non-deterministic)
+        callback: optional callback function called at each iteration with current position vector
 
     Returns:
         LayoutResult containing positions and optimization statistics
@@ -748,7 +750,8 @@ def layout_graph(
         args=(nodes_list, edges_idx, target_bbox),
         method='L-BFGS-B',
         bounds=[(0, target_bbox[0]), (0, target_bbox[1])] * n,
-        options={'maxiter': 2000, 'ftol': 1e-6}
+        options={'maxiter': 2000, 'ftol': 1e-6},
+        callback=callback
     )
 
     if verbose:
