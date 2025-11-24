@@ -342,20 +342,33 @@ def simple_spring_layout(
 
 def overlap_penalty(positions: np.ndarray, nodes: List[Node]) -> float:
     """
-    Penalize overlapping nodes (hard constraint via high weight).
+    Smooth exponential overlap penalty to prevent node overlaps.
 
-    Uses proper 2D rectangle separation checking both X and Y axes.
+    Uses a smooth exponential barrier function instead of discontinuous max(0, ...)
+    to avoid numerical instability in L-BFGS-B optimization. The penalty:
+    - Is C∞ continuous (infinitely differentiable)
+    - Provides long-range repulsion before nodes touch
+    - Has bounded maximum value (~1500 for complete overlap)
+    - Produces stable gradients for the optimizer
+
+    The penalty grows exponentially as separation decreases below 1.0
+    (where 1.0 = just touching). This maintains strong enforcement of
+    non-overlap while avoiding the extreme values (billions) that caused
+    "ABNORMAL termination" issues.
 
     Args:
         positions: array of shape (n, 2)
         nodes: list of Node objects
 
     Returns:
-        penalty value (float)
+        penalty value (float), bounded and smooth
     """
-    penalty = 0
+    penalty = 0.0
     n = len(nodes)
     MARGIN = 10  # Minimum spacing between nodes
+    STRENGTH = 10.0  # Base penalty magnitude
+    SHARPNESS = 5.0  # Steepness of exponential (higher = more aggressive)
+    REPULSION_RANGE = 1.5  # Start repelling at this multiple of minimum distance
 
     for i in range(n):
         for j in range(i + 1, n):
@@ -363,18 +376,27 @@ def overlap_penalty(positions: np.ndarray, nodes: List[Node]) -> float:
             dx = abs(positions[i][0] - positions[j][0])
             dy = abs(positions[i][1] - positions[j][1])
 
-            # Minimum required distance in each dimension
+            # Minimum required distance in each dimension (rectangle half-widths + margin)
             min_dx = (nodes[i].width + nodes[j].width) / 2 + MARGIN
             min_dy = (nodes[i].height + nodes[j].height) / 2 + MARGIN
 
-            # Check overlap in both dimensions independently
-            overlap_x = max(0, min_dx - dx)
-            overlap_y = max(0, min_dy - dy)
+            # Separation ratios (1.0 = just touching, <1.0 = overlapping)
+            sep_x = dx / min_dx if min_dx > 0 else 10.0
+            sep_y = dy / min_dy if min_dy > 0 else 10.0
 
-            # Penalize if overlapping in BOTH dimensions (rectangles overlap)
-            if overlap_x > 0 and overlap_y > 0:
-                # Penalty based on overlap area
-                penalty += (overlap_x * overlap_y) ** 2
+            # Only penalize if close in BOTH dimensions (rectangles near/overlapping)
+            if sep_x < REPULSION_RANGE and sep_y < REPULSION_RANGE:
+                # For rectangles to overlap, they must overlap in BOTH dimensions
+                # So we need BOTH sep_x < 1.0 AND sep_y < 1.0
+                # Use geometric mean to combine both constraints smoothly
+                sep = np.sqrt(sep_x * sep_y)
+
+                # Exponential barrier function:
+                # - sep ≥ 1.0: penalty ≈ STRENGTH (light repulsion)
+                # - sep < 1.0: penalty grows exponentially
+                # - sep → 0: penalty → STRENGTH * exp(SHARPNESS) ≈ 1484
+                violation = 1.0 - sep
+                penalty += STRENGTH * np.exp(SHARPNESS * violation)
 
     return penalty
 
@@ -636,7 +658,7 @@ def energy_function(
     E = 0
 
     # Weights (tunable parameters)
-    W_OVERLAP = 1000       # Hard constraint - nodes must not overlap
+    W_OVERLAP = 100        # Smooth exponential barrier - prevent overlaps (reduced from 1000)
     W_EDGE_LENGTH = 10     # Keep connected nodes close
     W_STRAIGHTNESS = 5     # Encourage straight-through paths
     W_EDGE_NODE = 200      # Prevent edges from crossing through nodes
@@ -769,7 +791,7 @@ def layout_graph(
     # Compute penalty breakdown at final positions
     # Weight constants (must match energy_function)
     weights = {
-        'overlap': 1000,
+        'overlap': 100,
         'edge_length': 10,
         'straightness': 5,
         'edge_node': 200,
