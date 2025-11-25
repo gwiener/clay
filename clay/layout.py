@@ -841,10 +841,11 @@ def layout_graph(
     verbose: bool = True,
     init_mode: str = 'spring',
     seed: Optional[int] = None,
-    callback: Optional[Callable[[np.ndarray], None]] = None
+    callback: Optional[Callable[[np.ndarray], None]] = None,
+    n_init: int = 5
 ) -> LayoutResult:
     """
-    Layout a graph using constrained optimization.
+    Layout a graph using constrained optimization with multi-start.
 
     Args:
         nodes_dict: dict of {node_id: Node}
@@ -854,9 +855,10 @@ def layout_graph(
         init_mode: initialization strategy ('spring', 'grid', 'random')
         seed: random seed for reproducibility (None = non-deterministic)
         callback: optional callback function called at each iteration with current position vector
+        n_init: number of random initializations to try (default: 5, set to 1 to disable multi-start)
 
     Returns:
-        LayoutResult containing positions and optimization statistics
+        LayoutResult containing positions and optimization statistics from best run
     """
     # Create ordered list of node IDs and index mapping
     node_ids = list(nodes_dict.keys())
@@ -885,53 +887,96 @@ def layout_graph(
         )
         return LayoutResult(positions={}, stats=empty_stats)
 
-    # Generate initial positions based on init_mode
-    if init_mode == 'spring':
-        # Force-directed pre-layout
-        x0 = simple_spring_layout(edges_idx, n, target_bbox, iterations=50, seed=seed)
-        init_desc = "force-directed"
-    elif init_mode == 'random':
-        # Random uniform positions
-        if seed is not None:
-            np.random.seed(seed)
-        x0 = np.random.uniform(
-            low=[20, 20],
-            high=[target_bbox[0] - 20, target_bbox[1] - 20],
-            size=(n, 2)
-        )
-        init_desc = "random"
-    elif init_mode == 'grid':
-        # Simple grid layout (original approach)
-        grid_size = int(np.ceil(np.sqrt(n)))
-        x0 = np.zeros((n, 2))
-        spacing_x = target_bbox[0] / (grid_size + 1)
-        spacing_y = target_bbox[1] / (grid_size + 1)
-        for i in range(n):
-            x0[i] = [
-                (i % grid_size + 1) * spacing_x,
-                (i // grid_size + 1) * spacing_y
-            ]
-        init_desc = "grid"
-    else:
-        raise ValueError(f"Unknown init_mode: {init_mode}. Use 'spring', 'grid', or 'random'.")
-
-    if verbose:
+    # Multi-start optimization: try n_init random initializations
+    if verbose and n_init > 1:
+        print(f"Multi-start optimization: trying {n_init} initializations...")
         print(f"Laying out {n} nodes with {len(edges)} edges...")
         print(f"Target bounding box: {target_bbox[0]}x{target_bbox[1]}")
-        print(f"Initialization: {init_desc}" + (f" (seed={seed})" if seed is not None else ""))
+    elif verbose:
+        print(f"Laying out {n} nodes with {len(edges)} edges...")
+        print(f"Target bounding box: {target_bbox[0]}x{target_bbox[1]}")
 
-    # Optimize
-    result = minimize(
-        energy_function,
-        x0.flatten(),
-        args=(nodes_list, edges_idx, target_bbox),
-        method='L-BFGS-B',
-        bounds=[(0, target_bbox[0]), (0, target_bbox[1])] * n,
-        options={'maxiter': 2000, 'ftol': 1e-6},
-        callback=callback
-    )
+    best_result = None
+    best_energy = float('inf')
+    best_x0 = None
+    best_init_seed = None
+
+    for init_idx in range(n_init):
+        # Determine seed for this initialization
+        if seed is not None:
+            init_seed = seed + init_idx
+        else:
+            init_seed = None
+
+        # Generate initial positions based on init_mode
+        if init_mode == 'spring':
+            # Force-directed pre-layout
+            x0 = simple_spring_layout(edges_idx, n, target_bbox, iterations=50, seed=init_seed)
+            init_desc = "force-directed"
+        elif init_mode == 'random':
+            # Random uniform positions
+            if init_seed is not None:
+                np.random.seed(init_seed)
+            x0 = np.random.uniform(
+                low=[20, 20],
+                high=[target_bbox[0] - 20, target_bbox[1] - 20],
+                size=(n, 2)
+            )
+            init_desc = "random"
+        elif init_mode == 'grid':
+            # Simple grid layout (original approach)
+            # For grid mode with n_init > 1, add random jitter to each initialization
+            grid_size = int(np.ceil(np.sqrt(n)))
+            x0 = np.zeros((n, 2))
+            spacing_x = target_bbox[0] / (grid_size + 1)
+            spacing_y = target_bbox[1] / (grid_size + 1)
+            for i in range(n):
+                x0[i] = [
+                    (i % grid_size + 1) * spacing_x,
+                    (i // grid_size + 1) * spacing_y
+                ]
+            # Add jitter for multi-start (except first initialization)
+            if n_init > 1 and init_idx > 0:
+                if init_seed is not None:
+                    np.random.seed(init_seed)
+                jitter = np.random.uniform(-20, 20, size=(n, 2))
+                x0 = np.clip(x0 + jitter, [0, 0], target_bbox)
+            init_desc = "grid" + (" + jitter" if n_init > 1 and init_idx > 0 else "")
+        else:
+            raise ValueError(f"Unknown init_mode: {init_mode}. Use 'spring', 'grid', or 'random'.")
+
+        if verbose and n_init > 1:
+            print(f"  Init {init_idx + 1}/{n_init}: {init_desc}" + (f" (seed={init_seed})" if init_seed is not None else ""))
+        elif verbose:
+            print(f"Initialization: {init_desc}" + (f" (seed={init_seed})" if init_seed is not None else ""))
+
+        # Optimize
+        result = minimize(
+            energy_function,
+            x0.flatten(),
+            args=(nodes_list, edges_idx, target_bbox),
+            method='L-BFGS-B',
+            bounds=[(0, target_bbox[0]), (0, target_bbox[1])] * n,
+            options={'maxiter': 2000, 'ftol': 1e-6},
+            callback=callback if n_init == 1 else None  # Only use callback for single-start
+        )
+
+        if verbose and n_init > 1:
+            print(f"    Energy: {result.fun:.2f}, Iterations: {result.nit}, Status: {'✓' if result.success else '✗'}")
+
+        # Keep track of best result
+        if result.fun < best_energy:
+            best_energy = result.fun
+            best_result = result
+            best_x0 = x0
+            best_init_seed = init_seed
+
+    # Use the best result
+    result = best_result
 
     if verbose:
+        if n_init > 1:
+            print(f"Best result: energy={result.fun:.2f} from initialization with seed={best_init_seed}")
         print(f"Optimization {'converged' if result.success else 'terminated'}")
         print(f"Final energy: {result.fun:.2f}")
         print(f"Iterations: {result.nit}")

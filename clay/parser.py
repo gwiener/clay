@@ -276,11 +276,12 @@ def _extract_graph_settings(parsed_diagram: ParsedDiagram) -> Dict[str, Any]:
     Extract graph-level settings from parsed data.
 
     Returns:
-        Dict with keys: target_bbox, verbose, weights
+        Dict with keys: target_bbox, verbose, n_init, weights
     """
     settings = {
         'target_bbox': (800.0, 600.0),  # Default
         'verbose': True,  # Default
+        'n_init': 5,  # Default multi-start initializations
         'weights': {}  # Empty means use defaults
     }
 
@@ -298,6 +299,14 @@ def _extract_graph_settings(parsed_diagram: ParsedDiagram) -> Dict[str, Any]:
                 settings['verbose'] = False
             else:
                 raise ValueError(f"@verbose must be true/false, got '{values[0]}'")
+
+        elif setting_name == 'n_init':
+            if len(values) != 1:
+                raise ValueError(f"@n_init requires 1 value, got {len(values)}")
+            n_init_value = int(values[0])
+            if n_init_value < 1:
+                raise ValueError(f"@n_init must be >= 1, got {n_init_value}")
+            settings['n_init'] = n_init_value
 
         elif setting_name == 'weight':
             if len(values) != 2:
@@ -317,6 +326,7 @@ def layout_from_text(
     verbose: Optional[bool] = None,
     init_mode: Optional[str] = None,
     seed: Optional[int] = None,
+    n_init: Optional[int] = None,
     **weight_overrides
 ) -> Dict[str, Tuple[float, float]]:
     """
@@ -328,6 +338,7 @@ def layout_from_text(
         verbose: Override verbose setting (default: from DSL or True)
         init_mode: Override initialization mode (default: from DSL or 'spring')
         seed: Override random seed (default: from DSL or None)
+        n_init: Override number of multi-start initializations (default: from DSL or 5)
         **weight_overrides: Override specific weights (e.g., straightness=10)
 
     Returns:
@@ -357,6 +368,8 @@ def layout_from_text(
         graph_settings['init_mode'] = init_mode
     if seed is not None:
         graph_settings['seed'] = seed
+    if n_init is not None:
+        graph_settings['n_init'] = n_init
 
     # Merge weight overrides
     graph_settings['weights'].update(weight_overrides)
@@ -374,7 +387,8 @@ def layout_from_text(
         target_bbox=graph_settings['target_bbox'],
         verbose=graph_settings['verbose'],
         init_mode=graph_settings.get('init_mode', 'spring'),
-        seed=graph_settings.get('seed', None)
+        seed=graph_settings.get('seed', None),
+        n_init=graph_settings.get('n_init', 5)
     )
 
     return result.positions
@@ -386,6 +400,7 @@ def layout_from_file(
     verbose: Optional[bool] = None,
     init_mode: Optional[str] = None,
     seed: Optional[int] = None,
+    n_init: Optional[int] = None,
     **weight_overrides
 ) -> Dict[str, Tuple[float, float]]:
     """
@@ -397,6 +412,7 @@ def layout_from_file(
         verbose: Override verbose setting
         init_mode: Override initialization mode ('spring', 'grid', 'random')
         seed: Override random seed
+        n_init: Override number of multi-start initializations
         **weight_overrides: Override specific weights
 
     Returns:
@@ -412,7 +428,7 @@ def layout_from_file(
 
     clay_text = path.read_text(encoding='utf-8')
 
-    return layout_from_text(clay_text, target_bbox, verbose, init_mode, seed, **weight_overrides)
+    return layout_from_text(clay_text, target_bbox, verbose, init_mode, seed, n_init, **weight_overrides)
 
 
 def render_from_file(
@@ -422,6 +438,7 @@ def render_from_file(
     verbose: Optional[bool] = None,
     init_mode: Optional[str] = None,
     seed: Optional[int] = None,
+    n_init: Optional[int] = None,
     **weight_overrides
 ):
     """
@@ -436,6 +453,7 @@ def render_from_file(
         verbose: Override verbose setting
         init_mode: Override initialization mode ('spring', 'grid', 'random')
         seed: Override random seed
+        n_init: Override number of multi-start initializations
         **weight_overrides: Override specific weights
 
     Returns:
@@ -485,6 +503,8 @@ def render_from_file(
         graph_settings['init_mode'] = init_mode
     if seed is not None:
         graph_settings['seed'] = seed
+    if n_init is not None:
+        graph_settings['n_init'] = n_init
     graph_settings['weights'].update(weight_overrides)
 
     # Build nodes dict and compute layout
@@ -497,7 +517,8 @@ def render_from_file(
         target_bbox=graph_settings['target_bbox'],
         verbose=graph_settings['verbose'],
         init_mode=graph_settings.get('init_mode', 'spring'),
-        seed=graph_settings.get('seed', None)
+        seed=graph_settings.get('seed', None),
+        n_init=graph_settings.get('n_init', 5)
     )
 
     # Render to appropriate format

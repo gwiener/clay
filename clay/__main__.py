@@ -65,6 +65,14 @@ def main() -> int:
         help='Random seed for reproducibility (default: None = non-deterministic)'
     )
 
+    parser.add_argument(
+        '--n-init',
+        type=int,
+        default=None,
+        dest='n_init',
+        help='Number of random initializations for multi-start optimization (default: from DSL or 5, set to 1 to disable)'
+    )
+
     args = parser.parse_args()
 
     # Determine output file path
@@ -82,7 +90,8 @@ def main() -> int:
             args.input_file,
             output_file,
             init_mode=args.init,
-            seed=args.seed
+            seed=args.seed,
+            n_init=args.n_init
         )
         print(f"✓ Rendered {args.input_file} → {output_file}")
 
