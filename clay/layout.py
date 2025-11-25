@@ -817,7 +817,7 @@ def energy_function(
     W_EDGE_NODE = 200      # Prevent edges from crossing through nodes
     W_BBOX = 100           # Stay within target box
     W_AREA = 1             # Minimize total area
-    W_EDGE_CROSSING = 10   # Prevent edges from crossing each other
+    W_EDGE_CROSSING = 1    # Prevent edges from crossing each other
 
     E += W_OVERLAP * overlap_penalty(positions, nodes)
     E += W_EDGE_LENGTH * edge_length_penalty(positions, edges, target_bbox)
@@ -952,7 +952,7 @@ def layout_graph(
         'edge_node': 200,
         'bbox': 100,
         'area': 1,
-        'edge_crossing': 10
+        'edge_crossing': 1
     }
 
     penalty_breakdown = {
