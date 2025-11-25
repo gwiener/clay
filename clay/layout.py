@@ -560,6 +560,159 @@ def edge_node_intersection_penalty(
     return penalty
 
 
+def _point_to_segment_distance(
+    point: np.ndarray,
+    seg_start: np.ndarray,
+    seg_end: np.ndarray
+) -> float:
+    """
+    Calculate minimum distance from a point to a line segment.
+
+    Projects the point onto the infinite line through the segment,
+    then clamps to the segment endpoints if projection falls outside.
+
+    Args:
+        point: Point coordinates as array [x, y]
+        seg_start: Segment start point [x, y]
+        seg_end: Segment end point [x, y]
+
+    Returns:
+        Minimum distance from point to segment (float)
+    """
+    seg_vec = seg_end - seg_start
+    seg_len_sq = np.dot(seg_vec, seg_vec)
+
+    if seg_len_sq < 1e-10:
+        # Segment is essentially a point
+        return np.linalg.norm(point - seg_start)
+
+    # Project point onto infinite line: t is parameter (0=start, 1=end)
+    t = np.dot(point - seg_start, seg_vec) / seg_len_sq
+
+    # Clamp t to [0, 1] to stay within segment bounds
+    t = max(0.0, min(1.0, t))
+
+    # Closest point on segment
+    closest = seg_start + t * seg_vec
+
+    return np.linalg.norm(point - closest)
+
+
+def _segment_to_segment_distance(
+    p1: np.ndarray,
+    p2: np.ndarray,
+    p3: np.ndarray,
+    p4: np.ndarray
+) -> float:
+    """
+    Calculate minimum distance between two line segments.
+
+    The minimum distance is either:
+    - Zero if segments intersect
+    - Distance from an endpoint of one segment to the other segment
+
+    Args:
+        p1, p2: Endpoints of first segment
+        p3, p4: Endpoints of second segment
+
+    Returns:
+        Minimum distance between segments (float)
+    """
+    from clay.geometry import segments_intersect
+
+    # Check if segments intersect
+    if segments_intersect(tuple(p1), tuple(p2), tuple(p3), tuple(p4)):
+        return 0.0
+
+    # Segments don't intersect - find minimum distance
+    # Check distance from each endpoint to the other segment
+    distances = [
+        _point_to_segment_distance(p1, p3, p4),
+        _point_to_segment_distance(p2, p3, p4),
+        _point_to_segment_distance(p3, p1, p2),
+        _point_to_segment_distance(p4, p1, p2),
+    ]
+
+    return min(distances)
+
+
+def edge_crossing_penalty(
+    positions: np.ndarray,
+    edges: List[Tuple[int, int]],
+    target_bbox: Tuple[float, float]
+) -> float:
+    """
+    Penalize edges that cross or come close to crossing each other.
+
+    Uses smooth exponential penalty based on minimum distance between
+    edge segments. This guides the optimizer away from crossings while
+    maintaining differentiability for L-BFGS-B.
+
+    The penalty:
+    - Is zero when edges are far apart (> 5% of bbox diagonal)
+    - Grows exponentially as edges approach each other
+    - Is bounded (maximum ~150 for complete overlap)
+    - Skips edges that share a common endpoint
+
+    Args:
+        positions: array of shape (n, 2) with node coordinates
+        edges: list of (from_idx, to_idx) tuples using node indices
+        target_bbox: (width, height) tuple for normalization
+
+    Returns:
+        penalty value (float), smooth and differentiable
+
+    Complexity:
+        O(m²) where m = number of edges
+    """
+    if len(edges) <= 1:
+        return 0.0
+
+    penalty = 0.0
+    n_edges = len(edges)
+
+    # Normalize distances by bbox diagonal for scale-invariance
+    diagonal = np.sqrt(target_bbox[0]**2 + target_bbox[1]**2)
+
+    # Penalty parameters
+    THRESHOLD = 0.02      # Start penalizing at 2% of diagonal (was 5%)
+    STRENGTH = 5.0        # Base penalty magnitude (was 10.0)
+    SHARPNESS = 3.0       # Exponential steepness (was 5.0)
+
+    for i in range(n_edges):
+        u1, v1 = edges[i]
+        edge1_start = positions[u1]
+        edge1_end = positions[v1]
+
+        for j in range(i + 1, n_edges):
+            u2, v2 = edges[j]
+
+            # Skip edges that share a common endpoint
+            # (adjacent edges in a path should not be penalized)
+            if u1 == u2 or u1 == v2 or v1 == u2 or v1 == v2:
+                continue
+
+            edge2_start = positions[u2]
+            edge2_end = positions[v2]
+
+            # Calculate minimum distance between the two line segments
+            dist = _segment_to_segment_distance(
+                edge1_start, edge1_end,
+                edge2_start, edge2_end
+            )
+
+            # Normalize distance by bbox diagonal
+            normalized_dist = dist / diagonal
+
+            # Apply smooth exponential penalty when distance < threshold
+            if normalized_dist < THRESHOLD:
+                violation = THRESHOLD - normalized_dist
+                # Exponential barrier: penalty grows as segments approach
+                penalty += STRENGTH * np.exp(SHARPNESS * violation / THRESHOLD)
+
+    return penalty
+
+
 def bounding_box_penalty(
     positions: np.ndarray,
     nodes: List[Node],
@@ -664,6 +817,7 @@ def energy_function(
     W_EDGE_NODE = 200      # Prevent edges from crossing through nodes
     W_BBOX = 100           # Stay within target box
     W_AREA = 1             # Minimize total area
+    W_EDGE_CROSSING = 10   # Prevent edges from crossing each other
 
     E += W_OVERLAP * overlap_penalty(positions, nodes)
     E += W_EDGE_LENGTH * edge_length_penalty(positions, edges, target_bbox)
@@ -671,6 +825,7 @@ def energy_function(
     E += W_EDGE_NODE * edge_node_intersection_penalty(positions, edges, nodes)
     E += W_BBOX * bounding_box_penalty(positions, nodes, target_bbox)
     E += W_AREA * area_penalty(positions, nodes, target_bbox)
+    E += W_EDGE_CROSSING * edge_crossing_penalty(positions, edges, target_bbox)
 
     return E
 
@@ -796,7 +951,8 @@ def layout_graph(
         'straightness': 5,
         'edge_node': 200,
         'bbox': 100,
-        'area': 1
+        'area': 1,
+        'edge_crossing': 10
     }
 
     penalty_breakdown = {
@@ -805,7 +961,8 @@ def layout_graph(
         'straightness': straightness_penalty(positions_array, edges_idx, nodes_list, target_bbox),
         'edge_node': edge_node_intersection_penalty(positions_array, edges_idx, nodes_list),
         'bbox': bounding_box_penalty(positions_array, nodes_list, target_bbox),
-        'area': area_penalty(positions_array, nodes_list, target_bbox)
+        'area': area_penalty(positions_array, nodes_list, target_bbox),
+        'edge_crossing': edge_crossing_penalty(positions_array, edges_idx, target_bbox)
     }
 
     # Create stats object
