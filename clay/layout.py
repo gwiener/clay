@@ -1,3 +1,4 @@
+from abc import abstractmethod
 import random
 
 import numpy as np
@@ -62,81 +63,102 @@ def boundary_distance(cx1, cy1, w1, h1, cx2, cy2, w2, h2):
     return (dx**2 + dy**2) ** 0.5
 
 
-def spacing_penalty(
-    centers: np.ndarray,
-    g: graph.Graph,
-    D: int = 50,
-    k_edge: float = 1.0,
-    k_repel: float = 10.0
-) -> float:
-    """
-    positions: flat array [x0, y0, x1, y1, ...]
-    sizes: list of (width, height) per node
-    edges: set of (i, j) tuples for connected pairs
-    D: desired minimum distance between boundaries
-    """
-    n_nodes = len(g.nodes)
-    energy = 0.0
+class Penalty(object):
+    def __init__(
+        self,
+        g: graph.Graph,
+        w: float = 1.0,
+    ):
+        self.g = g
+        self.w = w
     
-    for i in range(n_nodes):
-        for j in range(i + 1, n_nodes):
-            cx1, cy1 = centers[2*i], centers[2*i + 1]
-            cx2, cy2 = centers[2*j], centers[2*j + 1]
-            w1, h1 = g.nodes[i].width, g.nodes[i].height
-            w2, h2 = g.nodes[j].width, g.nodes[j].height
-            
-            d = boundary_distance(cx1, cy1, w1, h1, cx2, cy2, w2, h2)
-            delta = d - D
-            name_i, name_j = g.nodes[i].name, g.nodes[j].name
-            is_edge = (name_i, name_j) in g.edges or (name_j, name_i) in g.edges
-            added_energy = 0.0
-            if is_edge:
-                added_energy = 0.5 * k_edge * delta ** 2
-            elif delta < 0:
-                added_energy = 0.5 * k_repel * delta ** 2
-            energy += added_energy
-    
-    return energy
+    @abstractmethod
+    def compute(self, centers: np.ndarray) -> float:
+        pass
+
+    def __call__(self, centers: np.ndarray) -> float:
+        return self.w * self.compute(centers)
 
 
-def area_penalty(
-    centers: np.ndarray,
-    g: graph.Graph,
-    ideal_area_factor: float = 1.15
-) -> float:
-    """
-    Area penalty to encourage compact layouts.
-    """
-    total_nodes_area = sum(node.width * node.height for node in g.nodes)
-    ideal_area = total_nodes_area * ideal_area_factor
-    ideal_dim = np.sqrt(ideal_area)
-    min_x = min(centers[2*i] - g.nodes[i].width / 2 for i in range(len(g.nodes)))
-    max_x = max(centers[2*i] + g.nodes[i].width / 2 for i in range(len(g.nodes)))
-    min_y = min(centers[2*i + 1] - g.nodes[i].height / 2 for i in range(len(g.nodes)))
-    max_y = max(centers[2*i + 1] + g.nodes[i].height / 2 for i in range(len(g.nodes)))
-    actual_width = max_x - min_x
-    actual_height = max_y - min_y
-    delta_w = max(0, actual_width - ideal_dim)
-    delta_h = max(0, actual_height - ideal_dim)
-    diag_sq = delta_w ** 2 + delta_h ** 2
-    return np.sqrt(diag_sq)
+class Spacing(Penalty):
+    def __init__(
+        self,
+        g: graph.Graph,
+        w: float = 1.0,
+        D: int = 50,
+        k_edge: float = 1.0,
+        k_repel: float = 10.0
+    ):
+        super().__init__(g, w)
+        self.D = D
+        self.k_edge = k_edge
+        self.k_repel = k_repel
+
+    def compute(self, centers: np.ndarray) -> float:
+        n_nodes = len(self.g.nodes)
+        energy = 0.0
+        for i in range(n_nodes):
+            for j in range(i + 1, n_nodes):
+                cx1, cy1 = centers[2*i], centers[2*i + 1]
+                cx2, cy2 = centers[2*j], centers[2*j + 1]
+                w1, h1 = self.g.nodes[i].width, self.g.nodes[i].height
+                w2, h2 = self.g.nodes[j].width, self.g.nodes[j].height
+                d = boundary_distance(cx1, cy1, w1, h1, cx2, cy2, w2, h2)
+                delta = d - self.D
+                name_i, name_j = self.g.nodes[i].name, self.g.nodes[j].name
+                is_edge = (name_i, name_j) in self.g.edges or (name_j, name_i) in self.g.edges
+                added_energy = 0.0
+                if is_edge:
+                    added_energy = 0.5 * self.k_edge * delta ** 2
+                elif delta < 0:
+                    added_energy = 0.5 * self.k_repel * delta ** 2
+                energy += added_energy
+        return energy
+
+
+class Area(Penalty):
+    def __init__(
+        self,
+        g: graph.Graph,
+        w: float = 1.0,
+        ideal_area_factor: float = 1.15,
+    ):
+        super().__init__(g, w)
+        self.ideal_area_factor = ideal_area_factor
+        total_nodes_area = sum(node.width * node.height for node in g.nodes)
+        ideal_area = total_nodes_area * self.ideal_area_factor
+        self.ideal_dim = np.sqrt(ideal_area)
+ 
+
+    def compute(self, centers: np.ndarray) -> float:
+        """
+        Area penalty to encourage compact layouts.
+        """
+        min_x = min(centers[2*i] - self.g.nodes[i].width / 2 for i in range(len(self.g.nodes)))
+        max_x = max(centers[2*i] + self.g.nodes[i].width / 2 for i in range(len(self.g.nodes)))
+        min_y = min(centers[2*i + 1] - self.g.nodes[i].height / 2 for i in range(len(self.g.nodes)))
+        max_y = max(centers[2*i + 1] + self.g.nodes[i].height / 2 for i in range(len(self.g.nodes)))
+        actual_width = max_x - min_x
+        actual_height = max_y - min_y
+        delta_w = max(0, actual_width - self.ideal_dim)
+        delta_h = max(0, actual_height - self.ideal_dim)
+        diag_sq = delta_w ** 2 + delta_h ** 2
+        return np.sqrt(diag_sq)
     
 
-def energy(
-    centers: np.ndarray,
-    g: graph.Graph,
-) -> float:
-    """
-    Energy function for graph layout optimization.
-    
-    Args:
-        centers: Flat array of node center positions [x0, y0, x1, y1, ...].
-        g: Graph object containing nodes and edges.
-    
-    Returns:
-        A float representing the total energy of the layout.
-    """
-    return spacing_penalty(centers, g) + 0.5*area_penalty(centers, g)
+class Energy(object):
+    def __init__(
+        self,
+        g: graph.Graph
+    ):
+        self.g = g
+        self.penalties = [
+            Spacing(g),
+            Area(g, w=0.5)
+        ]
+
+    def compute(self, centers: np.ndarray) -> float:
+        return sum(penalty(centers) for penalty in self.penalties)
 
 
 class Result(object):
@@ -164,10 +186,11 @@ def fit(g: graph.Graph) -> Result:
     limits = compute_variable_limits(g)
     x0 = init_random(g, limits)
     
+    energy = Energy(g)
     result = minimize(
-        energy,
+        energy.compute,
         x0=np.array(x0),
-        args=(g,),
+        args=(),
         bounds=limits,
         method='L-BFGS-B',
         options={'maxiter': 2000, 'ftol': 1e-6}
