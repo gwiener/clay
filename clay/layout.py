@@ -56,11 +56,16 @@ def random_layout(g: graph.Graph) -> graph.Layout:
     return graph.Layout(g, centers)
 
 
-def boundary_distance(cx1, cy1, w1, h1, cx2, cy2, w2, h2):
-    """Distance between rectangle boundaries (0 if overlapping)"""
-    dx = max(0, abs(cx2 - cx1) - (w1 + w2) / 2)
-    dy = max(0, abs(cy2 - cy1) - (h1 + h2) / 2)
-    return (dx**2 + dy**2) ** 0.5
+def signed_distance(cx1, cy1, w1, h1, cx2, cy2, w2, h2):
+    dx_gap = abs(cx2 - cx1) - (w1 + w2) / 2
+    dy_gap = abs(cy2 - cy1) - (h1 + h2) / 2
+    
+    if dx_gap >= 0 or dy_gap >= 0:
+        # Separated: boundary distance
+        return (max(0, dx_gap)**2 + max(0, dy_gap)**2) ** 0.5
+    else:
+        # Overlapping: negative penetration
+        return -(dx_gap**2 + dy_gap**2) ** 0.5
 
 
 class Penalty(object):
@@ -103,7 +108,7 @@ class Spacing(Penalty):
                 cx2, cy2 = centers[2*j], centers[2*j + 1]
                 w1, h1 = self.g.nodes[i].width, self.g.nodes[i].height
                 w2, h2 = self.g.nodes[j].width, self.g.nodes[j].height
-                d = boundary_distance(cx1, cy1, w1, h1, cx2, cy2, w2, h2)
+                d = signed_distance(cx1, cy1, w1, h1, cx2, cy2, w2, h2)
                 delta = d - self.D
                 name_i, name_j = self.g.nodes[i].name, self.g.nodes[j].name
                 is_edge = (name_i, name_j) in self.g.edges or (name_j, name_i) in self.g.edges
@@ -163,6 +168,8 @@ class Energy(object):
     
     def callback(self, centers: np.ndarray):
         record = {p.__class__.__name__: p(centers) for p in self.penalties}
+        total = sum(record.values())
+        record['Total'] = total
         self.history.append(record)
 
 
