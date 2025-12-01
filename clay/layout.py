@@ -1,5 +1,5 @@
-from abc import abstractmethod
 import random
+from abc import abstractmethod
 
 import numpy as np
 from scipy.optimize import OptimizeResult
@@ -156,19 +156,26 @@ class Energy(object):
             Spacing(g),
             Area(g, w=0.5)
         ]
+        self.history = []
 
     def compute(self, centers: np.ndarray) -> float:
         return sum(penalty(centers) for penalty in self.penalties)
+    
+    def callback(self, centers: np.ndarray):
+        record = {p.__class__.__name__: p(centers) for p in self.penalties}
+        self.history.append(record)
 
 
 class Result(object):
     def __init__(
         self,
         layout: graph.Layout,
-        optimization_result: OptimizeResult
+        optimization_result: OptimizeResult,
+        history: list[dict[str, float]]
     ):
         self.layout = layout
         self.optimization_result = optimization_result
+        self.history = history
 
 
 def fit(g: graph.Graph) -> Result:
@@ -193,9 +200,10 @@ def fit(g: graph.Graph) -> Result:
         args=(),
         bounds=limits,
         method='L-BFGS-B',
-        options={'maxiter': 2000, 'ftol': 1e-6}
+        options={'maxiter': 2000, 'ftol': 1e-6},
+        callback=energy.callback
     )
     
     optimized_centers = result.x.tolist()
     layout = graph.Layout(g, optimized_centers)
-    return Result(layout, result)
+    return Result(layout, result, energy.history)

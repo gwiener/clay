@@ -2,6 +2,8 @@ import importlib
 import sys
 from pathlib import Path
 
+import pandas as pd
+
 from clay.layout import fit
 from clay.render.matplot import render
 
@@ -30,6 +32,9 @@ def main():
     render(result.layout, str(output_path))
     print(f"Successfully rendered graph from examples.{module_name}")
     print(f"Optimization details: {result.optimization_result}")
+    df = pd.DataFrame(result.history)
+    print("Energy history:")
+    print(df.tail(10))
 
 
 if __name__ == "__main__":
