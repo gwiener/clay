@@ -1,0 +1,10 @@
+[project]
+name = "clay"
+version = "0.1.0"
+description = "CLay - Claude's Layout algorithm"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "matplotlib>=3.10.7",
+    "scipy>=1.16.3",
+]
