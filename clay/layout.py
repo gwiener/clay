@@ -5,6 +5,7 @@ from scipy.optimize import OptimizeResult
 
 from clay import graph
 from clay.penalties.area import Area
+from clay.penalties.edge_cross import EgdeCross
 from clay.penalties.node_edge import NodeEdge
 from clay.penalties.spacing import Spacing
 
@@ -67,7 +68,8 @@ class Energy(object):
         self.penalties = [
             Spacing(g),
             NodeEdge(g, w=2.0),
-            Area(g, w=0.5)
+            EgdeCross(g, w=0.5),
+            Area(g)
         ]
         self.history = []
 
