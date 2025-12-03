@@ -36,11 +36,7 @@ class Ranked(LayoutEngine):
             A Result object with hierarchical positions for each node.
         """
         if not g.nodes:
-            return Result(graph.Layout(g, []), metadata={
-                "layers": {},
-                "canvas_width": 0,
-                "canvas_height": 0,
-            })
+            return Result(graph.Layout(g, []))
 
         # Phase 1: Remove cycles
         reversed_edges = self._remove_cycles(g)
@@ -54,12 +50,14 @@ class Ranked(LayoutEngine):
         # Phase 4: Assign coordinates
         centers, canvas_width, canvas_height = self._assign_coordinates(g, node_layers, layer_order)
 
-        layout = graph.Layout(g, centers)
-        return Result(layout, metadata={
-            "layers": node_layers,
-            "canvas_width": canvas_width,
-            "canvas_height": canvas_height,
-        })
+        g_new = graph.Graph(
+            nodes=g.nodes,
+            edges=g.edges,
+            canvas_size=(int(canvas_width), int(canvas_height)),
+            defaults=g.defaults,
+        )
+        layout = graph.Layout(g_new, centers)
+        return Result(layout)
 
     def _remove_cycles(self, g: graph.Graph) -> set[tuple[str, str]]:
         """
