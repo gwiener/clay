@@ -317,7 +317,8 @@ class Ranked(LayoutEngine):
 
                 if self.direction == "TB":
                     x = current_pos + max_width / 2  # Add left padding
-                    y = layer_offset
+                    # Invert y so layer 0 is at top (high y in matplotlib coords)
+                    y = canvas_height - layer_offset
                 else:  # LR
                     x = layer_offset
                     y = current_pos + max_height / 2  # Add top padding
