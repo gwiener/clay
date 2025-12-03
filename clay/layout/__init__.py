@@ -59,9 +59,26 @@ def init_random(
     return centers
 
 
+def init_from_ranked(g: graph.Graph, direction: str = "TB") -> list[float]:
+    """
+    Initialize layout using Sugiyama-style ranked algorithm.
+
+    Args:
+        g: Graph object containing nodes and edges.
+        direction: Layout direction - "TB" (top-to-bottom) or "LR" (left-to-right).
+
+    Returns:
+        A flat list of center coordinates [x0, y0, x1, y1, ...].
+    """
+    from clay.layout.ranked import Ranked
+    result = Ranked(direction=direction).fit(g)
+    return result.layout.centers
+
+
 __all__ = [
     "LayoutEngine",
     "Result",
     "compute_variable_limits",
     "init_random",
+    "init_from_ranked",
 ]

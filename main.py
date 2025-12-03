@@ -18,6 +18,12 @@ def main():
         choices=list(ENGINES.keys()),
         help="Layout engine to use (default: energy)"
     )
+    parser.add_argument(
+        "--init", "-i",
+        default="random",
+        choices=["random", "ranked"],
+        help="Initialization method for energy layout (default: random)"
+    )
     args = parser.parse_args()
 
     module_name = args.module_name
@@ -38,7 +44,12 @@ def main():
 
     # Get and run the layout engine
     engine_class = get_engine(args.layout)
-    engine = engine_class()
+    if args.layout == "energy" and args.init == "ranked":
+        from clay.layout.ranked import Ranked
+        ranked_result = Ranked().fit(g)
+        engine = engine_class(init_layout=ranked_result.layout)
+    else:
+        engine = engine_class()
     result = engine.fit(g)
 
     # Render output

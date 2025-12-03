@@ -18,7 +18,7 @@ class _EnergyFunction:
             Spacing(g),
             NodeEdge(g, w=2.0),
             EgdeCross(g, w=0.5),
-            Area(g)
+            Area(g, w=0.5)
         ]
         self.history: list[dict[str, float]] = []
 
@@ -35,9 +35,15 @@ class _EnergyFunction:
 class Energy(LayoutEngine):
     """Energy-based layout engine using optimization."""
 
-    def __init__(self, max_iter: int = 2000, ftol: float = 1e-6):
+    def __init__(
+        self,
+        max_iter: int = 2000,
+        ftol: float = 1e-6,
+        init_layout: graph.Layout | None = None
+    ):
         self.max_iter = max_iter
         self.ftol = ftol
+        self.init_layout = init_layout
 
     def fit(self, g: graph.Graph) -> Result:
         """
@@ -49,8 +55,13 @@ class Energy(LayoutEngine):
         Returns:
             A Result object with optimized center positions for each node.
         """
+        if self.init_layout is not None:
+            g = self.init_layout.graph
         limits = compute_variable_limits(g)
-        x0 = init_random(g, limits)
+        if self.init_layout is not None:
+            x0 = self.init_layout.centers
+        else:
+            x0 = init_random(g, limits)
 
         energy_func = _EnergyFunction(g)
         opt_result = minimize(
