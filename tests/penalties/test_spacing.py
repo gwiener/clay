@@ -1,7 +1,7 @@
 import numpy as np
 
 from clay.graph import Graph, Node
-from clay.layout import Spacing
+from clay.penalties.spacing import Spacing
 
 g = Graph(
     nodes=[Node("a", 10, 10), Node("b", 10, 10)],
