@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from clay.layout import get_engine, ENGINES
+from clay.layout.engines import get_engine, ENGINES
 from clay.render.matplot import render
 
 

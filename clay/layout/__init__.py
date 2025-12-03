@@ -59,34 +59,9 @@ def init_random(
     return centers
 
 
-# Import engines after base class to avoid circular imports
-from clay.layout.random import Random
-from clay.layout.energy import Energy
-from clay.layout.ranked import Ranked
-
-# Registry for CLI lookup
-ENGINES: dict[str, type[LayoutEngine]] = {
-    "random": Random,
-    "energy": Energy,
-    "ranked": Ranked,
-}
-
-
-def get_engine(name: str) -> type[LayoutEngine]:
-    """Get engine class by name."""
-    if name not in ENGINES:
-        raise ValueError(f"Unknown layout engine: {name}. Available: {list(ENGINES.keys())}")
-    return ENGINES[name]
-
-
 __all__ = [
     "LayoutEngine",
     "Result",
-    "Random",
-    "Energy",
-    "Ranked",
-    "ENGINES",
-    "get_engine",
     "compute_variable_limits",
     "init_random",
 ]
