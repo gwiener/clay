@@ -8,6 +8,7 @@ from clay.layout import LayoutEngine, Result
 # Spacing constants
 LAYER_SPACING = 100  # pixels between layers
 NODE_SPACING = 50    # pixels between nodes in same layer
+PADDING = 10         # pixels of margin around the layout
 
 
 class Ranked(LayoutEngine):
@@ -285,17 +286,19 @@ class Ranked(LayoutEngine):
             canvas_height = (
                 max_height / 2 +
                 (num_layers - 1) * (max_height + LAYER_SPACING) +
-                max_height / 2
+                max_height / 2 +
+                2 * PADDING
             )
-            canvas_width = max_layer_width + max_width  # Add padding
+            canvas_width = max_layer_width + max_width + 2 * PADDING
         else:  # LR
             # Left to right: layers are horizontal, nodes spread vertically
             canvas_width = (
                 max_width / 2 +
                 (num_layers - 1) * (max_width + LAYER_SPACING) +
-                max_width / 2
+                max_width / 2 +
+                2 * PADDING
             )
-            canvas_height = max_layer_width + max_height  # Add padding
+            canvas_height = max_layer_width + max_height + 2 * PADDING
 
         # Compute node positions
         node_positions: dict[str, tuple[float, float]] = {}
@@ -316,12 +319,12 @@ class Ranked(LayoutEngine):
                 width, height = node_dims[node_name]
 
                 if self.direction == "TB":
-                    x = current_pos + max_width / 2  # Add left padding
+                    x = current_pos + max_width / 2 + PADDING
                     # Invert y so layer 0 is at top (high y in matplotlib coords)
-                    y = canvas_height - layer_offset
+                    y = canvas_height - layer_offset - PADDING
                 else:  # LR
-                    x = layer_offset
-                    y = current_pos + max_height / 2  # Add top padding
+                    x = layer_offset + PADDING
+                    y = current_pos + max_height / 2 + PADDING
 
                 node_positions[node_name] = (x, y)
                 current_pos += width + NODE_SPACING
