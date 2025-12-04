@@ -18,4 +18,5 @@ build-backend = "hatchling.build"
 dev = [
     "pandas>=2.3.3",
     "pytest>=9.0.1",
+    "scalene>=1.5.55",
 ]
