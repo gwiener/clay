@@ -1,17 +1,6 @@
-from clay.penalties import Penalty, Graph
 import numpy as np
 
-
-def _signed_distance(cx1, cy1, w1, h1, cx2, cy2, w2, h2):
-    dx_gap = abs(cx2 - cx1) - (w1 + w2) / 2
-    dy_gap = abs(cy2 - cy1) - (h1 + h2) / 2
-    
-    if dx_gap >= 0 or dy_gap >= 0:
-        # Separated: boundary distance
-        return (max(0, dx_gap)**2 + max(0, dy_gap)**2) ** 0.5
-    else:
-        # Overlapping: negative penetration
-        return -(dx_gap**2 + dy_gap**2) ** 0.5
+from clay.penalties import Graph, Penalty
 
 
 class Spacing(Penalty):
@@ -28,23 +17,70 @@ class Spacing(Penalty):
         self.k_edge = k_edge
         self.k_repel = k_repel
 
+        # Pre-compute node dimensions
+        self.widths = np.array([node.width for node in g.nodes])
+        self.heights = np.array([node.height for node in g.nodes])
+
+        # Pre-compute edge set for O(1) lookup
+        self.edge_set = set(g.edges)
+
+        # Pre-compute edge matrix (symmetric)
+        n = len(g.nodes)
+        self.edge_matrix = np.zeros((n, n), dtype=bool)
+        for src, dst in g.edges:
+            i, j = g.name2idx[src], g.name2idx[dst]
+            self.edge_matrix[i, j] = True
+            self.edge_matrix[j, i] = True
+
+        # Pre-compute upper triangle indices for pair iteration
+        self.i_indices, self.j_indices = np.triu_indices(n, k=1)
+
     def compute(self, centers: np.ndarray) -> float:
-        n_nodes = len(self.g.nodes)
-        energy = 0.0
-        for i in range(n_nodes):
-            for j in range(i + 1, n_nodes):
-                cx1, cy1 = centers[2*i], centers[2*i + 1]
-                cx2, cy2 = centers[2*j], centers[2*j + 1]
-                w1, h1 = self.g.nodes[i].width, self.g.nodes[i].height
-                w2, h2 = self.g.nodes[j].width, self.g.nodes[j].height
-                d = _signed_distance(cx1, cy1, w1, h1, cx2, cy2, w2, h2)
-                delta = d - self.D
-                name_i, name_j = self.g.nodes[i].name, self.g.nodes[j].name
-                is_edge = (name_i, name_j) in self.g.edges or (name_j, name_i) in self.g.edges
-                added_energy = 0.0
-                if is_edge:
-                    added_energy = 0.5 * self.k_edge * delta ** 2
-                elif delta < 0:
-                    added_energy = 0.5 * self.k_repel * delta ** 2
-                energy += added_energy
-        return energy
+        n = len(self.g.nodes)
+        if n < 2:
+            return 0.0
+
+        # Reshape centers to (n, 2)
+        coords = centers.reshape(-1, 2)
+        cx = coords[:, 0]
+        cy = coords[:, 1]
+
+        # Get pairs
+        i_idx, j_idx = self.i_indices, self.j_indices
+
+        # Compute pairwise differences
+        dx = np.abs(cx[j_idx] - cx[i_idx])
+        dy = np.abs(cy[j_idx] - cy[i_idx])
+
+        # Compute half-widths and half-heights for each pair
+        half_w_sum = (self.widths[i_idx] + self.widths[j_idx]) / 2
+        half_h_sum = (self.heights[i_idx] + self.heights[j_idx]) / 2
+
+        # Compute gaps
+        dx_gap = dx - half_w_sum
+        dy_gap = dy - half_h_sum
+
+        # Compute signed distance
+        # Separated: sqrt(max(0, dx_gap)^2 + max(0, dy_gap)^2)
+        # Overlapping: -sqrt(dx_gap^2 + dy_gap^2)
+        separated = (dx_gap >= 0) | (dy_gap >= 0)
+
+        signed_dist = np.where(
+            separated,
+            np.sqrt(np.maximum(0, dx_gap)**2 + np.maximum(0, dy_gap)**2),
+            -np.sqrt(dx_gap**2 + dy_gap**2)
+        )
+
+        # Compute delta from desired distance
+        delta = signed_dist - self.D
+
+        # Get edge mask for pairs
+        is_edge = self.edge_matrix[i_idx, j_idx]
+
+        # Compute energy contributions
+        # Connected pairs: always penalized (spring)
+        # Non-connected pairs: only penalized when overlapping (delta < 0)
+        edge_energy = np.where(is_edge, 0.5 * self.k_edge * delta**2, 0.0)
+        repel_energy = np.where(~is_edge & (delta < 0), 0.5 * self.k_repel * delta**2, 0.0)
+
+        return float(np.sum(edge_energy) + np.sum(repel_energy))
