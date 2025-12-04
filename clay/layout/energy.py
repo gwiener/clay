@@ -1,5 +1,5 @@
 import numpy as np
-from scipy.optimize import minimize
+from scipy.optimize import basinhopping, minimize
 
 from clay import graph
 from clay.layout import LayoutEngine, Result, compute_variable_limits, init_random
@@ -31,6 +31,10 @@ class _EnergyFunction:
         record['Total'] = total
         self.history.append(record)
 
+    def callback_bh(self, centers: np.ndarray, f: float, accept: bool) -> None:
+        """Callback for basinhopping (different signature)."""
+        self.history.append({"energy": f, "accepted": accept})
+
 
 class Energy(LayoutEngine):
     """Energy-based layout engine using optimization."""
@@ -39,11 +43,13 @@ class Energy(LayoutEngine):
         self,
         max_iter: int = 2000,
         ftol: float = 1e-6,
-        init_layout: graph.Layout | None = None
+        init_layout: graph.Layout | None = None,
+        optimizer: str = "basinhopping"
     ):
         self.max_iter = max_iter
         self.ftol = ftol
         self.init_layout = init_layout
+        self.optimizer = optimizer
 
     def fit(self, g: graph.Graph) -> Result:
         """
@@ -64,15 +70,33 @@ class Energy(LayoutEngine):
             x0 = init_random(g, limits)
 
         energy_func = _EnergyFunction(g)
-        opt_result = minimize(
-            energy_func.compute,
-            x0=np.array(x0),
-            args=(),
-            bounds=limits,
-            method='L-BFGS-B',
-            options={'maxiter': self.max_iter, 'ftol': self.ftol},
-            callback=energy_func.callback
-        )
+
+        match self.optimizer:
+            case "L-BFGS-B":
+                opt_result = minimize(
+                    energy_func.compute,
+                    x0=np.array(x0),
+                    bounds=limits,
+                    method='L-BFGS-B',
+                    options={'maxiter': self.max_iter, 'ftol': self.ftol},
+                    callback=energy_func.callback
+                )
+            case "basinhopping":
+                opt_result = basinhopping(
+                    energy_func.compute,
+                    x0=np.array(x0),
+                    niter=100,
+                    T=1.0,
+                    stepsize=50,
+                    minimizer_kwargs={
+                        'method': 'L-BFGS-B',
+                        'bounds': limits,
+                        'options': {'maxiter': self.max_iter, 'ftol': self.ftol}
+                    },
+                    callback=energy_func.callback_bh
+                )
+            case _:
+                raise ValueError(f"Unknown optimizer: {self.optimizer}")
 
         optimized_centers = opt_result.x.tolist()
         layout = graph.Layout(g, optimized_centers)
