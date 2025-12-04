@@ -7,6 +7,10 @@ from clay import graph
 class LayoutEngine:
     """Base class for layout engines."""
 
+    def compute_variable_limits(self, g: graph.Graph) -> list[tuple[float, float]]:
+        """Compute position bounds for each node, using graph's padding."""
+        return compute_variable_limits(g, padding=g.padding)
+
     @abstractmethod
     def fit(self, g: graph.Graph) -> "Result":
         """Compute layout for the given graph."""
@@ -25,12 +29,13 @@ class Result:
         self.metadata = metadata or {}
 
 
-def compute_variable_limits(g: graph.Graph) -> list[tuple[int, int]]:
+def compute_variable_limits(g: graph.Graph, padding: int = 0) -> list[tuple[float, float]]:
     """
     Compute variable limits for a graph layout.
 
     Args:
         g: Graph object containing nodes.
+        padding: Margin from canvas edges where nodes cannot be placed.
 
     Returns:
         A list of tuples representing variable limits [(x_min, x_max), (y_min, y_max), ...] for each node.
@@ -38,8 +43,8 @@ def compute_variable_limits(g: graph.Graph) -> list[tuple[int, int]]:
     limits = []
     for node in g.nodes:
         limits.extend([
-            (node.width / 2, g.canvas.width - node.width / 2),
-            (node.height / 2, g.canvas.height - node.height / 2)
+            (node.width / 2 + padding, g.canvas.width - node.width / 2 - padding),
+            (node.height / 2 + padding, g.canvas.height - node.height / 2 - padding)
         ])
     return limits
 

@@ -14,7 +14,7 @@ class NodeRenderingHints:
     font_name: str = "Arial"
     font_size: int = 12
     font_factor: float = 0.7
-    padding: int = 10
+    padding: int = 5
 
 
 @dataclasses.dataclass
@@ -30,11 +30,13 @@ class Graph:
         edges: list[tuple[str, str]],
         canvas_size: tuple[int, int] = (800, 600),
         defaults: NodeRenderingHints = NodeRenderingHints(),
+        padding: int = 5,
     ):
         self.nodes = nodes
         self.edges = edges
         self.canvas = Canvas(*canvas_size)
         self.defaults = defaults
+        self.padding = padding
         self.name2idx = {node.name: idx for idx, node in enumerate(nodes)}
         self.incoming = {node.name: [] for node in nodes}
         self.outgoing = {node.name: [] for node in nodes}
@@ -49,6 +51,7 @@ class Graph:
         edges: list[tuple[str, str]],
         canvas_size: tuple[int, int] = (800, 600),
         defaults: NodeRenderingHints = NodeRenderingHints(),
+        padding: int = 5,
     ) -> Self:
         nodes = [
             Node(
@@ -58,7 +61,7 @@ class Graph:
             )
             for name in node_names
         ]
-        return cls(nodes=nodes, edges=edges, canvas_size=canvas_size, defaults=defaults)
+        return cls(nodes=nodes, edges=edges, canvas_size=canvas_size, defaults=defaults, padding=padding)
 
 
 class Layout:

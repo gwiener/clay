@@ -3,7 +3,7 @@ from scipy.optimize import basinhopping, minimize
 from tqdm import tqdm
 
 from clay import graph
-from clay.layout import LayoutEngine, Result, compute_variable_limits, init_random
+from clay.layout import LayoutEngine, Result, init_random
 from clay.penalties.area import Area
 from clay.penalties.chain_collinearity import ChainCollinearity
 from clay.penalties.edge_cross import EgdeCross
@@ -88,7 +88,7 @@ class Energy(LayoutEngine):
         """
         if self.init_layout is not None:
             g = self.init_layout.graph
-        limits = compute_variable_limits(g)
+        limits = self.compute_variable_limits(g)
         if self.init_layout is not None:
             x0 = self.init_layout.centers
         else:
