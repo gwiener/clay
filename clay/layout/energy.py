@@ -5,6 +5,7 @@ from tqdm import tqdm
 from clay import graph
 from clay.layout import LayoutEngine, Result, compute_variable_limits, init_random
 from clay.penalties.area import Area
+from clay.penalties.chain_collinearity import ChainCollinearity
 from clay.penalties.edge_cross import EgdeCross
 from clay.penalties.node_edge import NodeEdge
 from clay.penalties.spacing import Spacing
@@ -24,7 +25,8 @@ class _EnergyFunction:
             Spacing(g),
             NodeEdge(g, w=2.0),
             EgdeCross(g, w=0.5),
-            Area(g, w=0.5)
+            Area(g, w=0.5),
+            ChainCollinearity(g, w=0.3)
         ]
         self.history: list[dict[str, float]] = []
         self.pbar: tqdm | None = None
