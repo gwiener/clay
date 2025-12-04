@@ -1,11 +1,12 @@
 import argparse
 import importlib
 import sys
+import time
 from pathlib import Path
 
 import pandas as pd
 
-from clay.layout.engines import get_engine, ENGINES
+from clay.layout.engines import ENGINES, get_engine
 from clay.render.matplot import render
 
 
@@ -23,6 +24,11 @@ def main():
         default="random",
         choices=["random", "ranked"],
         help="Initialization method for energy layout (default: random)"
+    )
+    parser.add_argument(
+        "--progress", "-p",
+        action="store_true",
+        help="Show optimization progress bar"
     )
     args = parser.parse_args()
 
@@ -44,14 +50,17 @@ def main():
 
     # Get and run the layout engine
     engine_class = get_engine(args.layout)
-    if args.layout == "energy" and args.init == "ranked":
-        from clay.layout.ranked import Ranked
-        ranked_result = Ranked().fit(g)
-        engine = engine_class(init_layout=ranked_result.layout)
+    if args.layout == "energy":
+        if args.init == "ranked":
+            from clay.layout.ranked import Ranked
+            ranked_result = Ranked().fit(g)
+            engine = engine_class(init_layout=ranked_result.layout, progress=args.progress)
+        else:
+            engine = engine_class(progress=args.progress)
     else:
         engine = engine_class()
+    
     result = engine.fit(g)
-
     # Render output
     output_path = Path("output") / f"{module_name}.png"
     output_path.parent.mkdir(parents=True, exist_ok=True)
