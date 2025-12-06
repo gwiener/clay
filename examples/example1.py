@@ -1,6 +1,6 @@
-from clay.graph import Graph
+from clay.graph import Graph, Node, Edge
 
-graph = Graph.from_node_names(
-    node_names=["foo", "bim", "bar", "baz"],
-    edges=[("foo", "bim"), ("bim", "bar"), ("foo", "baz")]
+graph = Graph(
+    nodes=[Node("foo"), Node("bim"), Node("bar"), Node("baz")],
+    edges=[Edge("foo", "bim"), Edge("bim", "bar"), Edge("foo", "baz")]
 )

@@ -54,8 +54,11 @@ class ChainCollinearity(Penalty):
     def __init__(self, g: Graph, w: float = 1.0):
         super().__init__(g, w)
 
-        # Enumerate all (A, B, C) chains where A->B and B->C edges exist
+        # Enumerate all (A, B, C) chains where A->B and B->C are flow edges
         chains: list[tuple[int, int, int]] = []
+
+        # Build set of flow edges for quick lookup
+        flow_edges = {(e.src, e.dst) for e in g.edges if e.flow}
 
         for b_name in g.name2idx:
             predecessors = g.incoming[b_name]
@@ -65,11 +68,13 @@ class ChainCollinearity(Penalty):
                 for c_name in successors:
                     # Avoid degenerate A == C case
                     if a_name != c_name:
-                        chains.append((
-                            g.name2idx[a_name],
-                            g.name2idx[b_name],
-                            g.name2idx[c_name]
-                        ))
+                        # Only include chain if BOTH edges are flow edges
+                        if (a_name, b_name) in flow_edges and (b_name, c_name) in flow_edges:
+                            chains.append((
+                                g.name2idx[a_name],
+                                g.name2idx[b_name],
+                                g.name2idx[c_name]
+                            ))
 
         # Pre-compute index arrays for vectorized access
         if chains:

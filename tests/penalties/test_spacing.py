@@ -4,7 +4,7 @@ import time
 import numpy as np
 import pytest
 
-from clay.graph import Graph, Node
+from clay.graph import Graph, Node, Edge
 from clay.penalties.spacing import Spacing
 
 
@@ -38,7 +38,7 @@ def spacing_reference(
             d = _signed_distance_ref(cx1, cy1, w1, h1, cx2, cy2, w2, h2)
             delta = d - D
             name_i, name_j = g.nodes[i].name, g.nodes[j].name
-            is_edge = (name_i, name_j) in g.edges or (name_j, name_i) in g.edges
+            is_edge = any((e.src == name_i and e.dst == name_j) or (e.src == name_j and e.dst == name_i) for e in g.edges)
             added_energy = 0.0
             if is_edge:
                 added_energy = 0.5 * k_edge * delta ** 2
@@ -76,7 +76,7 @@ class TestSpacingEdgeCases:
         """Connected nodes at exactly desired distance D should have zero penalty."""
         g = Graph(
             nodes=[Node("a", 10, 10), Node("b", 10, 10)],
-            edges=[("a", "b")]
+            edges=[Edge("a", "b")]
         )
         penalty = Spacing(g, D=50)
         # Place nodes so signed_distance == 50
@@ -91,7 +91,7 @@ class TestSpacingEdgeCases:
         """Connected nodes closer than D should have positive spring penalty."""
         g = Graph(
             nodes=[Node("a", 10, 10), Node("b", 10, 10)],
-            edges=[("a", "b")]
+            edges=[Edge("a", "b")]
         )
         penalty = Spacing(g, D=50)
         centers = np.array([100.0, 100.0, 115.0, 100.0])
@@ -102,7 +102,7 @@ class TestSpacingEdgeCases:
         """Connected nodes farther than D should have positive spring penalty."""
         g = Graph(
             nodes=[Node("a", 10, 10), Node("b", 10, 10)],
-            edges=[("a", "b")]
+            edges=[Edge("a", "b")]
         )
         penalty = Spacing(g, D=50)
         centers = np.array([100.0, 100.0, 300.0, 100.0])
@@ -113,7 +113,7 @@ class TestSpacingEdgeCases:
         """A-B connected, C isolated overlapping A: verify correct penalty sources."""
         g = Graph(
             nodes=[Node("A", 10, 10), Node("B", 10, 10), Node("C", 10, 10)],
-            edges=[("A", "B")]
+            edges=[Edge("A", "B")]
         )
         penalty = Spacing(g, D=50)
         # A at (100,100), B at (160,100) -> A-B at desired distance
@@ -154,7 +154,7 @@ class TestSpacingReferenceComparison:
             for i in range(n_nodes):
                 for j in range(i + 1, n_nodes):
                     if random.random() < edge_density:
-                        edges.append((f"n{i}", f"n{j}"))
+                        edges.append(Edge(f"n{i}", f"n{j}"))
 
             g = Graph(nodes=nodes, edges=edges)
 
@@ -182,7 +182,7 @@ class TestSpacingReferenceComparison:
         large_graphs = []
         for n_nodes in [30, 50, 80]:
             nodes = [Node(f"n{i}", 15, 15) for i in range(n_nodes)]
-            edges = [(f"n{i}", f"n{j}") for i in range(n_nodes) for j in range(i+1, n_nodes)
+            edges = [Edge(f"n{i}", f"n{j}") for i in range(n_nodes) for j in range(i+1, n_nodes)
                      if random.random() < 0.2]
             g = Graph(nodes=nodes, edges=edges)
             centers = np.array([random.uniform(50, 650) for _ in range(n_nodes * 2)])

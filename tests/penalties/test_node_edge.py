@@ -5,7 +5,7 @@ import numpy as np
 import pytest
 
 from clay.geometry import point_to_segment_distance
-from clay.graph import Graph, Node
+from clay.graph import Graph, Node, Edge
 from clay.penalties.node_edge import (
     NodeEdge,
     segment_intersects_rect,
@@ -156,7 +156,7 @@ class TestNodeEdgeEdgeCases:
         """Single edge connecting both nodes - no unconnected node-edge pairs."""
         g = Graph(
             nodes=[Node("a", 10, 10), Node("b", 10, 10)],
-            edges=[("a", "b")]
+            edges=[Edge("a", "b")]
         )
         penalty = NodeEdge(g)
         centers = np.array([0.0, 0.0, 100.0, 100.0])
@@ -168,7 +168,7 @@ class TestNodeEdgeEdgeCases:
             nodes=[
                 Node("a", 10, 10), Node("b", 10, 10), Node("c", 10, 10)
             ],
-            edges=[("a", "b")]
+            edges=[Edge("a", "b")]
         )
         penalty = NodeEdge(g)
         # Edge from (0,0) to (100,0), node C at (50, 100) - far above
@@ -181,7 +181,7 @@ class TestNodeEdgeEdgeCases:
             nodes=[
                 Node("a", 10, 10), Node("b", 10, 10), Node("c", 20, 20)
             ],
-            edges=[("a", "b")]
+            edges=[Edge("a", "b")]
         )
         penalty = NodeEdge(g)
         # Edge from (0,0) to (100,0), node C at (50, 0) - right on the edge
@@ -194,7 +194,7 @@ class TestNodeEdgeEdgeCases:
             nodes=[
                 Node("a", 10, 10), Node("b", 10, 10), Node("c", 30, 30)
             ],
-            edges=[("a", "b")]
+            edges=[Edge("a", "b")]
         )
         penalty = NodeEdge(g)
         # Edge from (0,0) to (100,100), node C at (50,50) with large size - intersection
@@ -208,7 +208,7 @@ class TestNodeEdgeEdgeCases:
                 Node("a", 50, 50),  # Large node
                 Node("b", 50, 50),
             ],
-            edges=[("a", "b")]
+            edges=[Edge("a", "b")]
         )
         penalty = NodeEdge(g)
         # Even with overlapping large nodes, no penalty since they're connected
@@ -223,7 +223,7 @@ class TestNodeEdgeEdgeCases:
                 Node("c", 10, 10), Node("d", 10, 10),
                 Node("e", 30, 30)  # Large node in the middle
             ],
-            edges=[("a", "b"), ("c", "d")]
+            edges=[Edge("a", "b"), Edge("c", "d")]
         )
         penalty = NodeEdge(g)
         # Two crossing edges with node E in the middle
@@ -243,7 +243,7 @@ class TestNodeEdgeEdgeCases:
             nodes=[
                 Node("a", 10, 10), Node("b", 10, 10), Node("c", 30, 30)
             ],
-            edges=[("a", "b")]
+            edges=[Edge("a", "b")]
         )
         centers1 = np.array([0.0, 0.0, 100.0, 100.0, 50.0, 50.0])
         penalty1 = NodeEdge(g1).compute(centers1)
@@ -255,7 +255,7 @@ class TestNodeEdgeEdgeCases:
                 Node("c", 10, 10), Node("d", 10, 10),
                 Node("e", 30, 30)
             ],
-            edges=[("a", "b"), ("c", "d")]
+            edges=[Edge("a", "b"), Edge("c", "d")]
         )
         # X pattern with node E in middle
         centers2 = np.array([
@@ -296,10 +296,10 @@ class TestNodeEdgeReferenceComparison:
             for i in range(n_nodes):
                 for j in range(i + 1, n_nodes):
                     if random.random() < edge_density:
-                        edges.append((f"n{i}", f"n{j}"))
+                        edges.append(Edge(f"n{i}", f"n{j}"))
 
             if len(edges) < 1:
-                edges = [("n0", "n1")]
+                edges = [Edge("n0", "n1")]
 
             g = Graph(nodes=nodes, edges=edges)
 
@@ -337,7 +337,7 @@ class TestNodeEdgeReferenceComparison:
                 for i in range(n_nodes)
             ]
             # Moderate edge density
-            edges = [(f"n{i}", f"n{j}")
+            edges = [Edge(f"n{i}", f"n{j}")
                      for i in range(n_nodes) for j in range(i + 1, n_nodes)
                      if random.random() < 0.2]
             g = Graph(nodes=nodes, edges=edges)

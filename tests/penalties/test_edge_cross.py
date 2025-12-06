@@ -5,7 +5,7 @@ import numpy as np
 import pytest
 
 from clay.geometry import point_to_segment_distance
-from clay.graph import Graph, Node
+from clay.graph import Graph, Node, Edge
 from clay.penalties.edge_cross import EgdeCross, segment_cross
 
 
@@ -110,7 +110,7 @@ class TestEdgeCrossEdgeCases:
         """Single edge means no pairs, so zero penalty."""
         g = Graph(
             nodes=[Node("a", 10, 10), Node("b", 10, 10)],
-            edges=[("a", "b")]
+            edges=[Edge("a", "b")]
         )
         penalty = EgdeCross(g)
         centers = np.array([0.0, 0.0, 100.0, 100.0])
@@ -123,7 +123,7 @@ class TestEdgeCrossEdgeCases:
                 Node("a", 10, 10), Node("b", 10, 10),
                 Node("c", 10, 10), Node("d", 10, 10)
             ],
-            edges=[("a", "b"), ("c", "d")]
+            edges=[Edge("a", "b"), Edge("c", "d")]
         )
         penalty = EgdeCross(g)
         # a--b on y=0, c--d on y=50 (parallel)
@@ -137,7 +137,7 @@ class TestEdgeCrossEdgeCases:
                 Node("a", 10, 10), Node("b", 10, 10),
                 Node("c", 10, 10), Node("d", 10, 10)
             ],
-            edges=[("a", "b"), ("c", "d")]
+            edges=[Edge("a", "b"), Edge("c", "d")]
         )
         penalty = EgdeCross(g)
         # a(0,0)--b(100,100) crosses c(0,100)--d(100,0)
@@ -151,7 +151,7 @@ class TestEdgeCrossEdgeCases:
             nodes=[
                 Node("a", 10, 10), Node("b", 10, 10), Node("c", 10, 10)
             ],
-            edges=[("a", "b"), ("a", "c")]
+            edges=[Edge("a", "b"), Edge("a", "c")]
         )
         penalty = EgdeCross(g)
         # a at origin, b and c spread out
@@ -166,7 +166,7 @@ class TestEdgeCrossEdgeCases:
                 Node("c", 10, 10), Node("d", 10, 10),
                 Node("e", 10, 10), Node("f", 10, 10)
             ],
-            edges=[("a", "b"), ("c", "d"), ("e", "f")]
+            edges=[Edge("a", "b"), Edge("c", "d"), Edge("e", "f")]
         )
         penalty = EgdeCross(g)
         # a-b and c-d cross (X pattern), e-f is far away (parallel)
@@ -189,7 +189,7 @@ class TestEdgeCrossEdgeCases:
                 Node("a", 10, 10), Node("b", 10, 10),
                 Node("c", 10, 10), Node("d", 10, 10)
             ],
-            edges=[("a", "b"), ("c", "d")]
+            edges=[Edge("a", "b"), Edge("c", "d")]
         )
         # X pattern
         centers1 = np.array([0.0, 0.0, 100.0, 100.0, 0.0, 100.0, 100.0, 0.0])
@@ -202,7 +202,7 @@ class TestEdgeCrossEdgeCases:
                 Node("c", 10, 10), Node("d", 10, 10),
                 Node("e", 10, 10), Node("f", 10, 10)
             ],
-            edges=[("a", "b"), ("c", "d"), ("e", "f")]
+            edges=[Edge("a", "b"), Edge("c", "d"), Edge("e", "f")]
         )
         # Two X patterns
         centers2 = np.array([
@@ -240,11 +240,11 @@ class TestEdgeCrossReferenceComparison:
             for i in range(n_nodes):
                 for j in range(i + 1, n_nodes):
                     if random.random() < edge_density:
-                        edges.append((f"n{i}", f"n{j}"))
+                        edges.append(Edge(f"n{i}", f"n{j}"))
 
             if len(edges) < 2:
                 # Ensure at least 2 edges
-                edges = [("n0", "n1"), ("n2", "n3")]
+                edges = [Edge("n0", "n1"), Edge("n2", "n3")]
 
             g = Graph(nodes=nodes, edges=edges)
 
@@ -276,7 +276,7 @@ class TestEdgeCrossReferenceComparison:
         for n_nodes in [20, 35, 50]:
             nodes = [Node(f"n{i}", 10, 10) for i in range(n_nodes)]
             # Higher edge density for more pairs
-            edges = [(f"n{i}", f"n{j}")
+            edges = [Edge(f"n{i}", f"n{j}")
                      for i in range(n_nodes) for j in range(i + 1, n_nodes)
                      if random.random() < 0.25]
             g = Graph(nodes=nodes, edges=edges)

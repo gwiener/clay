@@ -5,7 +5,7 @@ import numpy as np
 import pytest
 
 from clay.geometry import point_to_segment_distance
-from clay.graph import Graph, Node
+from clay.graph import Graph, Node, Edge
 from clay.penalties.chain_collinearity import ChainCollinearity
 
 
@@ -62,7 +62,7 @@ class TestChainCollinearityEdgeCases:
         """Single edge means no chains, so zero penalty."""
         g = Graph(
             nodes=[Node("a", 10, 10), Node("b", 10, 10)],
-            edges=[("a", "b")]
+            edges=[Edge("a", "b")]
         )
         penalty = ChainCollinearity(g)
         centers = np.array([0.0, 0.0, 100.0, 100.0])
@@ -75,7 +75,7 @@ class TestChainCollinearityEdgeCases:
                 Node("hub", 10, 10),
                 Node("a", 10, 10), Node("b", 10, 10), Node("c", 10, 10)
             ],
-            edges=[("hub", "a"), ("hub", "b"), ("hub", "c")]
+            edges=[Edge("hub", "a"), Edge("hub", "b"), Edge("hub", "c")]
         )
         penalty = ChainCollinearity(g)
         centers = np.array([50.0, 50.0, 0.0, 0.0, 100.0, 0.0, 50.0, 100.0])
@@ -85,7 +85,7 @@ class TestChainCollinearityEdgeCases:
         """Single chain A->B->C with B on line AC should have zero penalty."""
         g = Graph(
             nodes=[Node("a", 10, 10), Node("b", 10, 10), Node("c", 10, 10)],
-            edges=[("a", "b"), ("b", "c")]
+            edges=[Edge("a", "b"), Edge("b", "c")]
         )
         penalty = ChainCollinearity(g)
         # A at (0,0), B at (50,50), C at (100,100) - all collinear
@@ -96,7 +96,7 @@ class TestChainCollinearityEdgeCases:
         """Single chain A->B->C with B off line AC should have positive penalty."""
         g = Graph(
             nodes=[Node("a", 10, 10), Node("b", 10, 10), Node("c", 10, 10)],
-            edges=[("a", "b"), ("b", "c")]
+            edges=[Edge("a", "b"), Edge("b", "c")]
         )
         penalty = ChainCollinearity(g)
         # A at (0,0), B at (50,100), C at (100,0) - B is above line AC
@@ -107,7 +107,7 @@ class TestChainCollinearityEdgeCases:
         """Chain where A==C should be skipped (avoid self-reference)."""
         g = Graph(
             nodes=[Node("a", 10, 10), Node("b", 10, 10)],
-            edges=[("a", "b"), ("b", "a")]  # Bidirectional
+            edges=[Edge("a", "b"), Edge("b", "a")]  # Bidirectional
         )
         penalty = ChainCollinearity(g)
         # This creates potential chains A->B->A and B->A->B, both should be skipped
@@ -122,7 +122,7 @@ class TestChainCollinearityEdgeCases:
                 Node("a", 10, 10), Node("b", 10, 10),
                 Node("c", 10, 10), Node("d", 10, 10)
             ],
-            edges=[("a", "b"), ("b", "c"), ("c", "d")]  # Linear chain
+            edges=[Edge("a", "b"), Edge("b", "c"), Edge("c", "d")]  # Linear chain
         )
         penalty = ChainCollinearity(g)
         # Should have 2 chains: A->B->C and B->C->D
@@ -140,7 +140,7 @@ class TestChainCollinearityEdgeCases:
         """Greater deviation from collinearity should give higher penalty."""
         g = Graph(
             nodes=[Node("a", 10, 10), Node("b", 10, 10), Node("c", 10, 10)],
-            edges=[("a", "b"), ("b", "c")]
+            edges=[Edge("a", "b"), Edge("b", "c")]
         )
         penalty = ChainCollinearity(g)
 
@@ -152,6 +152,53 @@ class TestChainCollinearityEdgeCases:
         penalty_large = penalty.compute(centers_large_dev)
 
         assert penalty_large > penalty_small
+
+    def test_non_flow_edge_excluded_from_chains(self):
+        """Chain with flow=False edge should not be included in penalty."""
+        # Chain A->B->C where B->C has flow=False
+        g = Graph(
+            nodes=[Node("a", 10, 10), Node("b", 10, 10), Node("c", 10, 10)],
+            edges=[Edge("a", "b", flow=True), Edge("b", "c", flow=False)]
+        )
+        penalty = ChainCollinearity(g)
+        # No chains should be detected since B->C is not a flow edge
+        assert penalty.n_chains == 0
+
+        # Non-collinear positions that would give penalty if chain existed
+        centers = np.array([0.0, 0.0, 50.0, 100.0, 100.0, 0.0])
+        assert penalty.compute(centers) == 0.0
+
+    def test_all_flow_edges_included_in_chains(self):
+        """Chain with all flow=True edges should be included in penalty."""
+        # Same chain A->B->C but with flow=True on both edges
+        g = Graph(
+            nodes=[Node("a", 10, 10), Node("b", 10, 10), Node("c", 10, 10)],
+            edges=[Edge("a", "b", flow=True), Edge("b", "c", flow=True)]
+        )
+        penalty = ChainCollinearity(g)
+        assert penalty.n_chains == 1
+
+        # Non-collinear positions should give positive penalty
+        centers = np.array([0.0, 0.0, 50.0, 100.0, 100.0, 0.0])
+        assert penalty.compute(centers) > 0.0
+
+    def test_mixed_flow_edges_partial_chains(self):
+        """Only chains where both edges are flow should be included."""
+        # Chain A->B->C->D with B->C as non-flow
+        # Should have 0 chains (A->B->C excluded, B->C->D excluded)
+        g = Graph(
+            nodes=[
+                Node("a", 10, 10), Node("b", 10, 10),
+                Node("c", 10, 10), Node("d", 10, 10)
+            ],
+            edges=[
+                Edge("a", "b", flow=True),
+                Edge("b", "c", flow=False),  # Non-flow breaks both chains
+                Edge("c", "d", flow=True)
+            ]
+        )
+        penalty = ChainCollinearity(g)
+        assert penalty.n_chains == 0
 
 
 # =============================================================================
@@ -176,10 +223,10 @@ class TestChainCollinearityReferenceComparison:
             for i in range(n_nodes):
                 for j in range(i + 1, n_nodes):
                     if random.random() < edge_density:
-                        edges.append((f"n{i}", f"n{j}"))
+                        edges.append(Edge(f"n{i}", f"n{j}"))
 
             if len(edges) < 2:
-                edges = [(f"n0", f"n1"), (f"n1", f"n2")]
+                edges = [Edge("n0", "n1"), Edge("n1", "n2")]
 
             g = Graph(nodes=nodes, edges=edges)
             centers = np.array([random.uniform(0, 200) for _ in range(n_nodes * 2)])
@@ -210,7 +257,7 @@ class TestChainCollinearityReferenceComparison:
         for n_nodes in [30, 50, 80]:
             nodes = [Node(f"n{i}", 10, 10) for i in range(n_nodes)]
             # Create DAG with decent chain count
-            edges = [(f"n{i}", f"n{j}")
+            edges = [Edge(f"n{i}", f"n{j}")
                      for i in range(n_nodes) for j in range(i + 1, n_nodes)
                      if random.random() < 0.15]
             g = Graph(nodes=nodes, edges=edges)

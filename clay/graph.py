@@ -33,11 +33,21 @@ class Canvas:
     height: int
 
 
+@dataclasses.dataclass(frozen=True)
+class Edge:
+    src: str
+    dst: str
+    flow: bool = True
+
+    def __iter__(self):
+        return iter((self.src, self.dst))
+
+
 class Graph:
     def __init__(
         self,
         nodes: list[Node],
-        edges: list[tuple[str, str]],
+        edges: list[Edge],
         canvas_size: tuple[int, int] = (800, 600),
         defaults: NodeRenderingHints = NodeRenderingHints(),
         padding: int = 5,
