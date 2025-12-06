@@ -1,5 +1,4 @@
 import dataclasses
-from typing import Self
 
 
 @dataclasses.dataclass
@@ -54,18 +53,6 @@ class Graph:
         for src, dst in edges:
             self.outgoing[src].append(dst)
             self.incoming[dst].append(src)
-
-    @classmethod
-    def from_node_names(
-        cls,
-        node_names: list[str],
-        edges: list[tuple[str, str]],
-        canvas_size: tuple[int, int] = (800, 600),
-        defaults: NodeRenderingHints = NodeRenderingHints(),
-        padding: int = 5,
-    ) -> Self:
-        nodes = [Node(name=name, hints=defaults) for name in node_names]
-        return cls(nodes=nodes, edges=edges, canvas_size=canvas_size, defaults=defaults, padding=padding)
 
 
 class Layout:
