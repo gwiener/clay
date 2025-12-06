@@ -1,7 +1,6 @@
 import argparse
 import importlib
 import sys
-import time
 from pathlib import Path
 
 import pandas as pd
