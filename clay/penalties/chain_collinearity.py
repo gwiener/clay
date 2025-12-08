@@ -1,7 +1,20 @@
+from dataclasses import dataclass
+
 import numpy as np
 
 from clay.graph import Graph
-from clay.penalties import Penalty
+from clay.penalties import LocalPenalty, LocalEnergies
+
+
+@dataclass(frozen=True)
+class ChainKey:
+    """Key for chain contributions (ChainCollinearity penalty)."""
+    start: str
+    middle: str
+    end: str
+
+    def __str__(self) -> str:
+        return f"{self.start} -> {self.middle} -> {self.end}"
 
 
 def _point_to_segment_distance_vectorized(
@@ -42,7 +55,7 @@ def _point_to_segment_distance_vectorized(
     return np.sqrt(dx * dx + dy * dy)
 
 
-class ChainCollinearity(Penalty):
+class ChainCollinearity(LocalPenalty):
     """
     Penalty for non-collinear 3-node chains.
 
@@ -89,15 +102,14 @@ class ChainCollinearity(Penalty):
             self.c_indices = np.array([], dtype=np.int32)
             self.n_chains = 0
 
-    def compute(self, centers: np.ndarray) -> float:
+    def compute_local_energies(self, centers: np.ndarray) -> LocalEnergies:
         """
-        Compute collinearity penalty for all chains.
+        Compute collinearity energy for all chains.
 
-        Returns sum of squared distances from middle nodes to
-        their endpoint segments.
+        Returns squared distances from middle nodes to their endpoint segments.
         """
         if self.n_chains == 0:
-            return 0.0
+            return LocalEnergies(np.array([]), [])
 
         coords = centers.reshape(-1, 2)
 
@@ -114,5 +126,17 @@ class ChainCollinearity(Penalty):
         # Distance from B to segment AC
         distances = _point_to_segment_distance_vectorized(ax, ay, cx, cy, bx, by)
 
-        # Quadratic penalty
-        return float(0.5 * np.sum(distances ** 2))
+        # Quadratic energy
+        energies = 0.5 * distances ** 2
+
+        # Build keys for all chains
+        keys = [
+            ChainKey(
+                start=self.g.nodes[self.a_indices[k]].name,
+                middle=self.g.nodes[self.b_indices[k]].name,
+                end=self.g.nodes[self.c_indices[k]].name
+            )
+            for k in range(self.n_chains)
+        ]
+
+        return LocalEnergies(energies, keys)

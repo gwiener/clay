@@ -1,7 +1,20 @@
+from dataclasses import dataclass
+
 import numpy as np
 
 from clay.graph import Graph
-from clay.penalties import Penalty
+from clay.penalties import LocalPenalty, LocalEnergies
+
+
+@dataclass(frozen=True)
+class NodeEdgeKey:
+    """Key for node-edge contributions (NodeEdge penalty)."""
+    node: str
+    edge_src: str
+    edge_dst: str
+
+    def __str__(self) -> str:
+        return f"node '{self.node}' vs edge {self.edge_src}->{self.edge_dst}"
 
 
 def segment_intersects_rect(
@@ -199,7 +212,7 @@ def _point_to_segment_distance_vectorized(
     return np.sqrt(dx * dx + dy * dy)
 
 
-class NodeEdge(Penalty):
+class NodeEdge(LocalPenalty):
     def __init__(
         self,
         g: Graph,
@@ -250,9 +263,9 @@ class NodeEdge(Penalty):
             self.valid_node_indices = np.array([], dtype=np.int32)
             self.valid_edge_indices = np.array([], dtype=np.int32)
 
-    def compute(self, centers: np.ndarray) -> float:
+    def compute_local_energies(self, centers: np.ndarray) -> LocalEnergies:
         if len(self.valid_node_indices) == 0:
-            return 0.0
+            return LocalEnergies(np.array([]), [])
 
         # Reshape centers to (n_nodes, 2)
         coords = centers.reshape(-1, 2)
@@ -276,7 +289,7 @@ class NodeEdge(Penalty):
         intersects = _segment_intersects_rect_vectorized(ax, ay, bx, by, cx, cy, hw, hh)
 
         if not np.any(intersects):
-            return 0.0
+            return LocalEnergies(np.array([]), [])
 
         # Compute penetration only for intersecting pairs
         ax_int = ax[intersects]
@@ -296,4 +309,20 @@ class NodeEdge(Penalty):
         penetration = half_diag_int - dist
 
         # Quadratic penalty: 0.5 * penetration^2
-        return float(np.sum(0.5 * penetration**2))
+        energies = 0.5 * penetration**2
+
+        # Build keys for intersecting pairs
+        intersect_indices = np.where(intersects)[0]
+        keys = []
+        for idx in intersect_indices:
+            node_idx = self.valid_node_indices[idx]
+            edge_idx = self.valid_edge_indices[idx]
+            node_name = self.g.nodes[node_idx].name
+            src_idx, dst_idx = self.edge_indices[edge_idx]
+            keys.append(NodeEdgeKey(
+                node=node_name,
+                edge_src=self.g.nodes[src_idx].name,
+                edge_dst=self.g.nodes[dst_idx].name
+            ))
+
+        return LocalEnergies(energies, keys)

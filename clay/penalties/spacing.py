@@ -1,9 +1,22 @@
+from dataclasses import dataclass
+
 import numpy as np
 
-from clay.penalties import Graph, Penalty
+from clay.graph import Graph
+from clay.penalties import LocalPenalty, LocalEnergies
 
 
-class Spacing(Penalty):
+@dataclass(frozen=True)
+class NodePairKey:
+    """Key for node pair contributions (Spacing penalty)."""
+    node1: str
+    node2: str
+
+    def __str__(self) -> str:
+        return f"{self.node1} <-> {self.node2}"
+
+
+class Spacing(LocalPenalty):
     def __init__(
         self,
         g: Graph,
@@ -35,10 +48,10 @@ class Spacing(Penalty):
         # Pre-compute upper triangle indices for pair iteration
         self.i_indices, self.j_indices = np.triu_indices(n, k=1)
 
-    def compute(self, centers: np.ndarray) -> float:
+    def compute_local_energies(self, centers: np.ndarray) -> LocalEnergies:
         n = len(self.g.nodes)
         if n < 2:
-            return 0.0
+            return LocalEnergies(np.array([]), [])
 
         # Reshape centers to (n, 2)
         coords = centers.reshape(-1, 2)
@@ -82,5 +95,12 @@ class Spacing(Penalty):
         # Non-connected pairs: only penalized when overlapping (delta < 0)
         edge_energy = np.where(is_edge, 0.5 * self.k_edge * delta**2, 0.0)
         repel_energy = np.where(~is_edge & (delta < 0), 0.5 * self.k_repel * delta**2, 0.0)
+        total_energy = edge_energy + repel_energy
 
-        return float(np.sum(edge_energy) + np.sum(repel_energy))
+        # Build keys for all pairs
+        keys = [
+            NodePairKey(self.g.nodes[i_idx[k]].name, self.g.nodes[j_idx[k]].name)
+            for k in range(len(i_idx))
+        ]
+
+        return LocalEnergies(total_energy, keys)

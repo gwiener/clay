@@ -142,6 +142,7 @@ class Energy(LayoutEngine):
             layout,
             metadata={
                 "optimization_result": opt_result,
-                "history": energy_func.history
+                "history": energy_func.history,
+                "penalties": energy_func.penalties,
             }
         )

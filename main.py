@@ -29,6 +29,11 @@ def main():
         action="store_true",
         help="Show optimization progress bar"
     )
+    parser.add_argument(
+        "--diagnose", "-d",
+        action="store_true",
+        help="Generate diagnostic report for optimization"
+    )
     args = parser.parse_args()
 
     module_name = args.module_name
@@ -74,6 +79,29 @@ def main():
         df = pd.DataFrame(result.metadata["history"])
         print("Energy history:")
         print(df.tail(10))
+
+    # Generate diagnostic report if requested
+    if args.diagnose:
+        from clay.diagnostics import generate_diagnostic_report, plot_energy_history
+
+        penalties = result.metadata.get("penalties")
+        history = result.metadata.get("history", [])
+
+        if penalties:
+            report = generate_diagnostic_report(
+                graph=g,
+                layout=result.layout,
+                penalties=penalties,
+                history=history,
+            )
+            print("\n" + report)
+
+            # Save energy plot if we have history
+            if history:
+                energy_plot_path = Path("output") / f"{module_name}_energy.png"
+                plot_energy_history(history, str(energy_plot_path))
+        else:
+            print("Diagnostic report not available (energy engine not used)")
 
 
 if __name__ == "__main__":

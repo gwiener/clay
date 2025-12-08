@@ -1,6 +1,20 @@
+from dataclasses import dataclass
+
 import numpy as np
 
-from clay.penalties import Penalty
+from clay.penalties import LocalPenalty, LocalEnergies
+
+
+@dataclass(frozen=True)
+class EdgePairKey:
+    """Key for edge pair contributions (EdgeCross penalty)."""
+    edge1_src: str
+    edge1_dst: str
+    edge2_src: str
+    edge2_dst: str
+
+    def __str__(self) -> str:
+        return f"{self.edge1_src}->{self.edge1_dst} × {self.edge2_src}->{self.edge2_dst}"
 
 
 def segment_cross(
@@ -118,7 +132,7 @@ def _crossing_penalty_vectorized(ax, ay, bx, by, cx, cy, dx, dy):
     return 0.5 * min_dist ** 2
 
 
-class EgdeCross(Penalty):
+class EgdeCross(LocalPenalty):
     def __init__(self, g, w=1.0):
         super().__init__(g, w)
 
@@ -135,9 +149,9 @@ class EgdeCross(Penalty):
             self.i_indices = np.array([], dtype=np.int32)
             self.j_indices = np.array([], dtype=np.int32)
 
-    def compute(self, centers: np.ndarray) -> float:
+    def compute_local_energies(self, centers: np.ndarray) -> LocalEnergies:
         if len(self.g.edges) < 2:
-            return 0.0
+            return LocalEnergies(np.array([]), [])
 
         # Reshape centers to (n_nodes, 2)
         coords = centers.reshape(-1, 2)
@@ -159,7 +173,7 @@ class EgdeCross(Penalty):
         crosses = _segment_cross_vectorized(ax, ay, bx, by, cx, cy, dx, dy)
 
         if not np.any(crosses):
-            return 0.0
+            return LocalEnergies(np.array([]), [])
 
         # Compute penalty only for crossing pairs
         penalties = _crossing_penalty_vectorized(
@@ -167,5 +181,20 @@ class EgdeCross(Penalty):
             cx[crosses], cy[crosses], dx[crosses], dy[crosses]
         )
 
-        # Final penalty: 0.5 * penalty^2 (quadratic)
-        return float(np.sum(0.5 * penalties ** 2))
+        # Final energy: 0.5 * penalty^2 (quadratic)
+        energies = 0.5 * penalties ** 2
+
+        # Build keys for crossing pairs
+        cross_indices = np.where(crosses)[0]
+        keys = []
+        for idx in cross_indices:
+            edge_i = self.g.edges[i_idx[idx]]
+            edge_j = self.g.edges[j_idx[idx]]
+            keys.append(EdgePairKey(
+                edge1_src=edge_i.src,
+                edge1_dst=edge_i.dst,
+                edge2_src=edge_j.src,
+                edge2_dst=edge_j.dst
+            ))
+
+        return LocalEnergies(energies, keys)
