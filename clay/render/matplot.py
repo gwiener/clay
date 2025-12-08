@@ -5,15 +5,16 @@ import numpy as np
 from clay import graph
 
 
-def render(layout: graph.Layout, output_path: str, dpi: int = 72) -> None:
+def render(layout: graph.Layout, output_path: str, dpi: int = 72, diagnose: bool = False) -> None:
     """
     Render a graph layout to a PNG image using matplotlib.
-    
+
     Args:
         layout: Layout object with graph and position information
         output_path: Path where the PNG file will be saved
         dpi: Dots per inch for the output image (default: 72)
-    
+        diagnose: If True, add diagnostic annotations (edge lengths, canvas frame)
+
     The function ensures 1:1 pixel mapping where each data point equals 1 pixel,
     and final image dimensions match the graph canvas size exactly.
     """
@@ -34,7 +35,15 @@ def render(layout: graph.Layout, output_path: str, dpi: int = 72) -> None:
     # Set exact data limits to match pixel dimensions
     ax.set_xlim(0, width_px)
     ax.set_ylim(0, height_px)
-    
+
+    # Draw canvas frame in diagnostic mode (inset by 1 to make all edges visible)
+    if diagnose:
+        frame = mpatches.Rectangle(
+            (1, 1), width_px - 2, height_px - 2,
+            linewidth=1, edgecolor='gray', facecolor='none'
+        )
+        ax.add_patch(frame)
+
     def _boundary_points(src_c, dst_c, src_node, dst_node):
         dx = dst_c[0] - src_c[0]
         dy = dst_c[1] - src_c[1]
@@ -74,7 +83,14 @@ def render(layout: graph.Layout, output_path: str, dpi: int = 72) -> None:
             xytext=start_pt,
             arrowprops=dict(arrowstyle='->', lw=1, color='black', mutation_scale=20)
         )
-    
+
+        # Add edge length label in diagnostic mode
+        if diagnose:
+            length = ((end_pt[0] - start_pt[0])**2 + (end_pt[1] - start_pt[1])**2)**0.5
+            mid_x = (start_pt[0] + end_pt[0]) / 2
+            mid_y = (start_pt[1] + end_pt[1]) / 2
+            ax.text(mid_x, mid_y, f"{length:.0f}", fontsize=8, color='gray', ha='center', va='center')
+
     # Draw nodes (boxes)
     for node in graph.nodes:
         cx, cy = layout.get_node_center(node.name)

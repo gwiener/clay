@@ -68,7 +68,7 @@ def main():
     # Render output
     output_path = Path("output") / f"{module_name}.png"
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    render(result.layout, str(output_path))
+    render(result.layout, str(output_path), diagnose=args.diagnose)
     print(f"Successfully rendered graph from examples.{module_name} using {args.layout} layout")
 
     # Print engine-specific metadata
