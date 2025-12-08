@@ -10,6 +10,7 @@ def generate_diagnostic_report(
     penalties: list[Penalty],
     history: list[dict[str, float]] | None = None,
     top_n: int = 5,
+    output_path: str | None = None,
 ) -> str:
     """Generate comprehensive diagnostic report for optimization results.
 
@@ -19,6 +20,7 @@ def generate_diagnostic_report(
         penalties: List of penalty objects used in optimization
         history: Optional energy history from optimization
         top_n: Number of top contributors to show per penalty
+        output_path: Path to write the report file (if None, only returns string)
 
     Returns:
         Formatted diagnostic report string
@@ -46,13 +48,13 @@ def generate_diagnostic_report(
 
     lines.append(f"Total Weighted Energy: {total_weighted:.2f}")
     lines.append("")
-    lines.append("Per-Penalty Breakdown:")
-    lines.append(f"  {'Penalty':20s} {'Unweighted':>10s}  {'Weighted':>10s}   (%)")
+    lines.append("### Per-Penalty Breakdown:")
+    lines.append(f"{'Penalty':20s} {'Unweighted':>10s}  {'Weighted':>10s}   (%)")
 
     for name, unweighted, weighted, _ in sorted(penalty_data, key=lambda x: -x[2]):
         pct = (weighted / total_weighted * 100) if total_weighted > 0 else 0
         bar = "█" * int(pct / 5) + "░" * (20 - int(pct / 5))
-        lines.append(f"  {name:20s} {unweighted:10.2f}  {weighted:10.2f}  ({pct:5.1f}%) {bar}")
+        lines.append(f"{name:20s} {unweighted:10.2f}  {weighted:10.2f}  ({pct:5.1f}%) {bar}")
 
     lines.append("")
 
@@ -82,11 +84,11 @@ def generate_diagnostic_report(
         sorted_contribs = sorted(contributions.items(), key=lambda x: -x[1])[:top_n]
 
         lines.append(f"### {name} (w={w})")
-        lines.append(f"  {'':40s} {'Unweighted':>10s}  {'Weighted':>10s}")
+        lines.append(f"{'':40s} {'Unweighted':>10s}  {'Weighted':>10s}")
 
         for key, unweighted in sorted_contribs:
             weighted = unweighted * w
-            lines.append(f"  {str(key):40s} {unweighted:10.2f}  {weighted:10.2f}")
+            lines.append(f"{str(key):40s} {unweighted:10.2f}  {weighted:10.2f}")
 
         lines.append("")
 
@@ -100,7 +102,7 @@ def generate_diagnostic_report(
             lines.append("Penalty pairs that frequently move in opposite directions:")
             for (p1, p2), count in sorted(conflicts.items(), key=lambda x: -x[1])[:5]:
                 pct = count / (len(history) - 1) * 100
-                lines.append(f"  {p1} vs {p2}: {count} times ({pct:.1f}%)")
+                lines.append(f"{p1} vs {p2}: {count} times ({pct:.1f}%)")
         else:
             lines.append("  No significant conflicts detected.")
 
@@ -140,7 +142,14 @@ def generate_diagnostic_report(
     lines.append("")
     lines.append("=" * 60)
 
-    return "\n".join(lines)
+    report = "\n".join(lines)
+
+    if output_path:
+        with open(output_path, "w") as f:
+            f.write(report)
+        print(f"Diagnostic report saved to {output_path}")
+
+    return report
 
 
 def detect_conflicts(history: list[dict[str, float]]) -> dict[tuple[str, str], int]:

@@ -88,13 +88,14 @@ def main():
         history = result.metadata.get("history", [])
 
         if penalties:
-            report = generate_diagnostic_report(
+            report_path = Path("output") / f"{module_name}_report.md"
+            generate_diagnostic_report(
                 graph=g,
                 layout=result.layout,
                 penalties=penalties,
                 history=history,
+                output_path=str(report_path),
             )
-            print("\n" + report)
 
             # Save energy plot if we have history
             if history:
