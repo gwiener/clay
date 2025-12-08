@@ -1,5 +1,3 @@
-from typing import Any
-
 import numpy as np
 
 from clay.graph import Graph, Layout
@@ -37,22 +35,24 @@ def generate_diagnostic_report(
     lines.append("## Energy Summary")
     lines.append("")
 
-    total_energy = 0.0
-    penalty_energies = {}
+    total_weighted = 0.0
+    penalty_data: list[tuple[str, float, float, float]] = []  # (name, unweighted, weighted, weight)
 
     for p in penalties:
-        energy = p(centers)  # Weighted energy
-        penalty_energies[p.__class__.__name__] = energy
-        total_energy += energy
+        unweighted = p.compute(centers)
+        weighted = p(centers)
+        penalty_data.append((p.__class__.__name__, unweighted, weighted, p.w))
+        total_weighted += weighted
 
-    lines.append(f"Total Energy: {total_energy:.2f}")
+    lines.append(f"Total Weighted Energy: {total_weighted:.2f}")
     lines.append("")
     lines.append("Per-Penalty Breakdown:")
+    lines.append(f"  {'Penalty':20s} {'Unweighted':>10s}  {'Weighted':>10s}   (%)")
 
-    for name, energy in sorted(penalty_energies.items(), key=lambda x: -x[1]):
-        pct = (energy / total_energy * 100) if total_energy > 0 else 0
+    for name, unweighted, weighted, _ in sorted(penalty_data, key=lambda x: -x[2]):
+        pct = (weighted / total_weighted * 100) if total_weighted > 0 else 0
         bar = "█" * int(pct / 5) + "░" * (20 - int(pct / 5))
-        lines.append(f"  {name:20s} {energy:8.2f} ({pct:5.1f}%) {bar}")
+        lines.append(f"  {name:20s} {unweighted:10.2f}  {weighted:10.2f}  ({pct:5.1f}%) {bar}")
 
     lines.append("")
 
@@ -62,28 +62,31 @@ def generate_diagnostic_report(
 
     for p in penalties:
         name = p.__class__.__name__
+        w = p.w
 
         try:
             contributions = p.compute_contributions(centers)
         except NotImplementedError:
-            lines.append(f"### {name}")
+            lines.append(f"### {name} (w={w})")
             lines.append("  (contribution analysis not available)")
             lines.append("")
             continue
 
         if not contributions:
-            lines.append(f"### {name}")
+            lines.append(f"### {name} (w={w})")
             lines.append("  (no contributions - penalty is zero)")
             lines.append("")
             continue
 
-        # Sort by energy descending
+        # Sort by energy descending (unweighted)
         sorted_contribs = sorted(contributions.items(), key=lambda x: -x[1])[:top_n]
 
-        lines.append(f"### {name}")
+        lines.append(f"### {name} (w={w})")
+        lines.append(f"  {'':40s} {'Unweighted':>10s}  {'Weighted':>10s}")
 
-        for key, energy in sorted_contribs:
-            lines.append(f"  {str(key):40s} {energy:8.2f}")
+        for key, unweighted in sorted_contribs:
+            weighted = unweighted * w
+            lines.append(f"  {str(key):40s} {unweighted:10.2f}  {weighted:10.2f}")
 
         lines.append("")
 
@@ -107,11 +110,11 @@ def generate_diagnostic_report(
     lines.append("## Recommendations")
     lines.append("")
 
-    # Find dominant penalty
-    if penalty_energies:
-        dominant = max(penalty_energies.items(), key=lambda x: x[1])
-        dominant_name, dominant_energy = dominant
-        dominant_pct = (dominant_energy / total_energy * 100) if total_energy > 0 else 0
+    # Find dominant penalty (by weighted energy)
+    if penalty_data:
+        dominant = max(penalty_data, key=lambda x: x[2])  # x[2] is weighted
+        dominant_name, _, dominant_weighted, _ = dominant
+        dominant_pct = (dominant_weighted / total_weighted * 100) if total_weighted > 0 else 0
 
         if dominant_pct > 50:
             lines.append(f"⚠️  {dominant_name} dominates ({dominant_pct:.0f}% of total energy)")
