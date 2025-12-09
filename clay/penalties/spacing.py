@@ -91,11 +91,11 @@ class Spacing(LocalPenalty):
         is_edge = self.edge_matrix[i_idx, j_idx]
 
         # Compute energy contributions
-        # Connected pairs: always penalized (spring)
-        # Non-connected pairs: only penalized when overlapping (delta < 0)
-        edge_energy = np.where(is_edge, 0.5 * self.k_edge * delta**2, 0.0)
-        repel_energy = np.where(~is_edge & (delta < 0), 0.5 * self.k_repel * delta**2, 0.0)
-        total_energy = edge_energy + repel_energy
+        # All pairs: repelled when too close (delta < 0)
+        # Connected pairs: additional spring when too far (delta > 0)
+        repel_energy = np.where(delta < 0, 0.5 * self.k_repel * delta**2, 0.0)
+        edge_energy = np.where(is_edge & (delta > 0), 0.5 * self.k_edge * delta**2, 0.0)
+        total_energy = repel_energy + edge_energy
 
         # Build keys for all pairs
         keys = [
