@@ -97,6 +97,19 @@ class CanvasConfig(BaseModel):
     padding: int = 5
 
 
+class OptimizerConfig(BaseModel):
+    """Optimizer configuration."""
+
+    method: str = "basinhopping"
+    ftol: float = 1e-6
+    gtol: float | None = None
+    max_iter: int = 2000
+    # Basinhopping-specific parameters
+    niter: int = 100
+    T: float = 1.0
+    stepsize: float = 50.0
+
+
 class GraphInputConfig(BaseModel):
     """Top-level configuration for graph input."""
 
@@ -104,6 +117,7 @@ class GraphInputConfig(BaseModel):
     nodes: list[str]
     edges: list[list[str] | dict]
     penalties: PenaltiesConfig = PenaltiesConfig()
+    optimizer: OptimizerConfig = OptimizerConfig()
 
     def build_graph(self) -> Graph:
         """Build a Graph instance from this configuration."""

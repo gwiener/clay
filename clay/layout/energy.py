@@ -71,14 +71,22 @@ class Energy(LayoutEngine):
         self,
         max_iter: int = 2000,
         ftol: float = 1e-6,
+        gtol: float | None = None,
         init_layout: graph.Layout | None = None,
         optimizer: str = "basinhopping",
+        niter: int = 100,
+        T: float = 1.0,
+        stepsize: float = 50.0,
         progress: bool = False
     ):
         self.max_iter = max_iter
         self.ftol = ftol
+        self.gtol = gtol
         self.init_layout = init_layout
         self.optimizer = optimizer
+        self.niter = niter
+        self.T = T
+        self.stepsize = stepsize
         self.progress = progress
 
     def fit(self, g: graph.Graph, penalties: list | None = None) -> Result:
@@ -103,7 +111,7 @@ class Energy(LayoutEngine):
         # Determine total iterations for progress bar
         match self.optimizer:
             case "basinhopping":
-                total_iters = 100  # niter
+                total_iters = self.niter
             case "L-BFGS-B":
                 total_iters = self.max_iter
             case _:
@@ -116,25 +124,31 @@ class Energy(LayoutEngine):
         try:
             match self.optimizer:
                 case "L-BFGS-B":
+                    options = {'maxiter': self.max_iter, 'ftol': self.ftol}
+                    if self.gtol is not None:
+                        options['gtol'] = self.gtol
                     opt_result = minimize(
                         energy_func.compute,
                         x0=np.array(x0),
                         bounds=limits,
                         method='L-BFGS-B',
-                        options={'maxiter': self.max_iter, 'ftol': self.ftol},
+                        options=options,
                         callback=energy_func.callback
                     )
                 case "basinhopping":
+                    minimizer_options = {'maxiter': self.max_iter, 'ftol': self.ftol}
+                    if self.gtol is not None:
+                        minimizer_options['gtol'] = self.gtol
                     opt_result = basinhopping(
                         energy_func.compute,
                         x0=np.array(x0),
-                        niter=100,
-                        T=1.0,
-                        stepsize=50,
+                        niter=self.niter,
+                        T=self.T,
+                        stepsize=self.stepsize,
                         minimizer_kwargs={
                             'method': 'L-BFGS-B',
                             'bounds': limits,
-                            'options': {'maxiter': self.max_iter, 'ftol': self.ftol}
+                            'options': minimizer_options
                         },
                         callback=energy_func.callback_bh
                     )

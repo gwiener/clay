@@ -44,6 +44,7 @@ def main():
 
     input_arg = args.input
     penalties = None
+    optimizer_config = None
 
     # Determine if input is YAML or module
     if args.module or not input_arg.endswith('.yaml'):
@@ -67,6 +68,7 @@ def main():
             config = load_config(input_arg)
             g = config.build_graph()
             penalties = config.penalties.bind_all(g)
+            optimizer_config = config.optimizer
         except FileNotFoundError:
             print(f"Error: YAML file '{input_arg}' not found", file=sys.stderr)
             sys.exit(1)
@@ -80,9 +82,26 @@ def main():
         if args.init == "ranked":
             from clay.layout.ranked import Ranked
             ranked_result = Ranked().fit(g)
-            engine = engine_class(init_layout=ranked_result.layout, progress=args.progress)
+            init_layout = ranked_result.layout
         else:
-            engine = engine_class(progress=args.progress)
+            init_layout = None
+
+        if optimizer_config is not None:
+            # YAML mode - use optimizer config
+            engine = engine_class(
+                max_iter=optimizer_config.max_iter,
+                ftol=optimizer_config.ftol,
+                gtol=optimizer_config.gtol,
+                init_layout=init_layout,
+                optimizer=optimizer_config.method,
+                niter=optimizer_config.niter,
+                T=optimizer_config.T,
+                stepsize=optimizer_config.stepsize,
+                progress=args.progress,
+            )
+        else:
+            # Legacy mode - use defaults
+            engine = engine_class(init_layout=init_layout, progress=args.progress)
     else:
         engine = engine_class()
 
@@ -116,6 +135,7 @@ def main():
                 layout=result.layout,
                 penalties=penalties,
                 history=history,
+                optimization_result=result.metadata.get("optimization_result"),
                 output_path=str(report_path),
             )
 
