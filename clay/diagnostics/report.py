@@ -9,6 +9,7 @@ def generate_diagnostic_report(
     layout: Layout,
     penalties: list[Penalty],
     history: list[dict[str, float]] | None = None,
+    optimization_result: object | None = None,
     top_n: int = 5,
     output_path: str | None = None,
 ) -> str:
@@ -19,6 +20,7 @@ def generate_diagnostic_report(
         layout: The final layout
         penalties: List of penalty objects used in optimization
         history: Optional energy history from optimization
+        optimization_result: scipy optimization result object
         top_n: Number of top contributors to show per penalty
         output_path: Path to write the report file (if None, only returns string)
 
@@ -143,7 +145,59 @@ def generate_diagnostic_report(
 
     lines.append("")
 
-    # 5. Layout section
+    # 5. Optimization Stats (if available)
+    if optimization_result is not None:
+        lines.append("## Optimization Stats")
+        lines.append("")
+
+        # Get the lowest optimization result for basinhopping
+        opt = getattr(optimization_result, 'lowest_optimization_result', optimization_result)
+
+        # Termination info
+        if hasattr(opt, 'message'):
+            msg = opt.message
+            if isinstance(msg, list):
+                msg = msg[0] if msg else "Unknown"
+            lines.append(f"- **Termination**: {msg}")
+
+        if hasattr(opt, 'nit'):
+            lines.append(f"- **Iterations**: {opt.nit}")
+
+        if hasattr(opt, 'nfev'):
+            lines.append(f"- **Function evaluations**: {opt.nfev}")
+
+        if hasattr(optimization_result, 'minimization_failures'):
+            lines.append(f"- **Minimization failures**: {optimization_result.minimization_failures}")
+
+        # Gradient analysis
+        if hasattr(opt, 'jac') and opt.jac is not None:
+            jac = np.array(opt.jac)
+            grad_norm = np.linalg.norm(jac)
+            max_grad = np.max(np.abs(jac))
+            lines.append(f"- **Gradient L2 norm**: {grad_norm:.2f}")
+            lines.append(f"- **Max |gradient|**: {max_grad:.2f}")
+            lines.append("")
+
+            # Find top 5 nodes by gradient magnitude
+            lines.append("### Nodes with Largest Gradients")
+            lines.append("")
+            lines.append("| Node | Magnitude | ∂x | ∂y |")
+            lines.append("|------|-----------|-----|-----|")
+
+            node_grads = []
+            for i, node in enumerate(graph.nodes):
+                if 2 * i + 1 < len(jac):
+                    gx, gy = jac[2 * i], jac[2 * i + 1]
+                    mag = np.sqrt(gx**2 + gy**2)
+                    node_grads.append((node.name, mag, gx, gy))
+
+            node_grads.sort(key=lambda x: -x[1])
+            for name, mag, gx, gy in node_grads[:5]:
+                lines.append(f"| {name} | {mag:.1f} | {gx:.1f} | {gy:.1f} |")
+
+        lines.append("")
+
+    # 6. Layout section
     lines.append("## Layout")
     lines.append("")
     lines.append("### Node Dimensions")
