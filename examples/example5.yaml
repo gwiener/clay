@@ -1,0 +1,60 @@
+canvas:
+  width: 1000
+  height: 800
+  padding: 5
+
+nodes:
+  - input
+  - analyze
+  - content
+  - metadata
+  - online
+  - LLM knowledge
+  - HyDE
+  - search terms
+  - generate
+  - criteria
+  - index
+  - lookup
+  - candidates
+  - rerank
+  - reranked
+  - filter
+  - tabular
+  - final
+
+edges:
+  - [input, analyze]
+  - [analyze, content]
+  - [analyze, metadata]
+  - [content, HyDE]
+  - {src: online, dst: HyDE, flow: false}
+  - {src: LLM knowledge, dst: HyDE, flow: false}
+  - [HyDE, search terms]
+  - [content, generate]
+  - [generate, criteria]
+  - [search terms, lookup]
+  - [index, lookup]
+  - [tabular, lookup]
+  - [metadata, lookup]
+  - [lookup, candidates]
+  - [candidates, rerank]
+  - [rerank, reranked]
+  - [reranked, filter]
+  - [criteria, filter]
+  - [filter, final]
+
+penalties:
+  spacing:
+    w: 1.0
+    D: 50
+    k_edge: 0.01
+    k_repel: 100.0
+  node_edge:
+    w: 10.0
+  edge_cross:
+    w: 0.5
+  area:
+    w: 0.25
+  chain_collinearity:
+    w: 0.3

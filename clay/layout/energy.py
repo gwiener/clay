@@ -17,17 +17,22 @@ class _EnergyFunction:
     def __init__(
         self,
         g: graph.Graph,
+        penalties: list | None = None,
         progress: bool = False,
         total_iters: int = 100
     ):
         self.g = g
-        self.penalties = [
-            Spacing(g),
-            NodeEdge(g, w=2.0),
-            EgdeCross(g, w=0.5),
-            Area(g, w=0.5),
-            ChainCollinearity(g, w=0.3)
-        ]
+        if penalties is not None:
+            self.penalties = penalties
+        else:
+            # Default penalties
+            self.penalties = [
+                Spacing(g),
+                NodeEdge(g, w=2.0),
+                EgdeCross(g, w=0.5),
+                Area(g, w=0.5),
+                ChainCollinearity(g, w=0.3)
+            ]
         self.history: list[dict[str, float]] = []
         self.pbar: tqdm | None = None
         if progress:
@@ -76,12 +81,13 @@ class Energy(LayoutEngine):
         self.optimizer = optimizer
         self.progress = progress
 
-    def fit(self, g: graph.Graph) -> Result:
+    def fit(self, g: graph.Graph, penalties: list | None = None) -> Result:
         """
         Optimize the layout of the graph using energy minimization.
 
         Args:
             g: Graph object containing nodes and edges.
+            penalties: Optional list of penalty instances. If None, uses defaults.
 
         Returns:
             A Result object with optimized center positions for each node.
@@ -103,7 +109,9 @@ class Energy(LayoutEngine):
             case _:
                 total_iters = self.max_iter
 
-        energy_func = _EnergyFunction(g, progress=self.progress, total_iters=total_iters)
+        energy_func = _EnergyFunction(
+            g, penalties=penalties, progress=self.progress, total_iters=total_iters
+        )
 
         try:
             match self.optimizer:

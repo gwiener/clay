@@ -5,13 +5,14 @@ from pathlib import Path
 
 import pandas as pd
 
+from clay.config import load_config
 from clay.layout.engines import ENGINES, get_engine
 from clay.render.matplot import render
 
 
 def main():
     parser = argparse.ArgumentParser(description="Render graph layouts")
-    parser.add_argument("module_name", help="Example module name (from examples package)")
+    parser.add_argument("input", help="YAML config file or example module name")
     parser.add_argument(
         "--layout", "-l",
         default="energy",
@@ -34,23 +35,44 @@ def main():
         action="store_true",
         help="Generate diagnostic report for optimization"
     )
+    parser.add_argument(
+        "--module", "-m",
+        action="store_true",
+        help="Treat input as module name from examples package (legacy)"
+    )
     args = parser.parse_args()
 
-    module_name = args.module_name
+    input_arg = args.input
+    penalties = None
 
-    # Load module from examples package
-    try:
-        module = importlib.import_module(f"examples.{module_name}")
-    except ModuleNotFoundError:
-        print(f"Error: Module 'examples.{module_name}' not found", file=sys.stderr)
-        sys.exit(1)
+    # Determine if input is YAML or module
+    if args.module or not input_arg.endswith('.yaml'):
+        # Legacy: load from examples package
+        module_name = input_arg
+        try:
+            module = importlib.import_module(f"examples.{module_name}")
+        except ModuleNotFoundError:
+            print(f"Error: Module 'examples.{module_name}' not found", file=sys.stderr)
+            sys.exit(1)
 
-    # Check if module has a graph member
-    if not hasattr(module, "graph"):
-        print(f"Error: Module 'examples.{module_name}' does not have a 'graph' member", file=sys.stderr)
-        sys.exit(1)
+        if not hasattr(module, "graph"):
+            print(f"Error: Module 'examples.{module_name}' does not have a 'graph' member", file=sys.stderr)
+            sys.exit(1)
 
-    g = module.graph
+        g = module.graph
+    else:
+        # New: load from YAML
+        module_name = Path(input_arg).stem
+        try:
+            config = load_config(input_arg)
+            g = config.build_graph()
+            penalties = config.penalties.bind_all(g)
+        except FileNotFoundError:
+            print(f"Error: YAML file '{input_arg}' not found", file=sys.stderr)
+            sys.exit(1)
+        except Exception as e:
+            print(f"Error loading YAML config: {e}", file=sys.stderr)
+            sys.exit(1)
 
     # Get and run the layout engine
     engine_class = get_engine(args.layout)
@@ -63,8 +85,8 @@ def main():
             engine = engine_class(progress=args.progress)
     else:
         engine = engine_class()
-    
-    result = engine.fit(g)
+
+    result = engine.fit(g, penalties=penalties)
     # Render output
     output_path = Path("output") / f"{module_name}.png"
     output_path.parent.mkdir(parents=True, exist_ok=True)
