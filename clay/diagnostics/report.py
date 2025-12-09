@@ -28,9 +28,7 @@ def generate_diagnostic_report(
     centers = np.array(layout.centers)
     lines = []
 
-    lines.append("=" * 60)
-    lines.append("OPTIMIZATION DIAGNOSTIC REPORT")
-    lines.append("=" * 60)
+    lines.append("# OPTIMIZATION DIAGNOSTIC REPORT")
     lines.append("")
 
     # 1. Energy Summary
@@ -48,13 +46,15 @@ def generate_diagnostic_report(
 
     lines.append(f"Total Weighted Energy: {total_weighted:.2f}")
     lines.append("")
-    lines.append("### Per-Penalty Breakdown:")
-    lines.append(f"{'Penalty':20s} {'Unweighted':>10s}  {'Weighted':>10s}   (%)")
+    lines.append("### Per-Penalty Breakdown")
+    lines.append("")
+    lines.append("| Penalty | Unweighted | Weighted | % | Distribution |")
+    lines.append("|---------|------------|----------|---|--------------------|")
 
     for name, unweighted, weighted, _ in sorted(penalty_data, key=lambda x: -x[2]):
         pct = (weighted / total_weighted * 100) if total_weighted > 0 else 0
         bar = "█" * int(pct / 5) + "░" * (20 - int(pct / 5))
-        lines.append(f"{name:20s} {unweighted:10.2f}  {weighted:10.2f}  ({pct:5.1f}%) {bar}")
+        lines.append(f"| {name} | {unweighted:.2f} | {weighted:.2f} | {pct:.1f}% | {bar} |")
 
     lines.append("")
 
@@ -84,11 +84,13 @@ def generate_diagnostic_report(
         sorted_contribs = sorted(contributions.items(), key=lambda x: -x[1])[:top_n]
 
         lines.append(f"### {name} (w={w})")
-        lines.append(f"{'':40s} {'Unweighted':>10s}  {'Weighted':>10s}")
+        lines.append("")
+        lines.append("| Contributor | Unweighted | Weighted |")
+        lines.append("|-------------|------------|----------|")
 
         for key, unweighted in sorted_contribs:
             weighted = unweighted * w
-            lines.append(f"{str(key):40s} {unweighted:10.2f}  {weighted:10.2f}")
+            lines.append(f"| {key} | {unweighted:.2f} | {weighted:.2f} |")
 
         lines.append("")
 
@@ -140,6 +142,27 @@ def generate_diagnostic_report(
             lines.append("✓ Energy is reasonably distributed across penalties")
 
     lines.append("")
+
+    # 5. Layout section
+    lines.append("## Layout")
+    lines.append("")
+    lines.append("### Node Dimensions")
+    lines.append("")
+    lines.append("| Node | Width | Height |")
+    lines.append("|------|-------|--------|")
+    for node in graph.nodes:
+        lines.append(f"| {node.name} | {node.width} | {node.height} |")
+    lines.append("")
+
+    lines.append("### Final Node Centers")
+    lines.append("")
+    lines.append("| Node | X | Y |")
+    lines.append("|------|-------|-------|")
+    for node in graph.nodes:
+        cx, cy = layout.get_node_center(node.name)
+        lines.append(f"| {node.name} | {cx:.1f} | {cy:.1f} |")
+    lines.append("")
+
     lines.append("=" * 60)
 
     report = "\n".join(lines)
