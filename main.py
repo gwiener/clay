@@ -1,12 +1,16 @@
 import argparse
 import sys
 from pathlib import Path
+from typing import TYPE_CHECKING, cast
 
 import pandas as pd
 
 from clay.config import load_config
 from clay.layout.engines import ENGINES, get_engine
 from clay.render.matplot import render
+
+if TYPE_CHECKING:
+    from clay.layout.energy import Energy
 
 
 def main():
@@ -55,6 +59,7 @@ def main():
     engine_class = get_engine(args.layout)
     match args.layout:
         case "energy":
+            engine_class = cast("type[Energy]", engine_class)
             if args.init == "ranked":
                 from clay.layout.ranked import Ranked
                 ranked_result = Ranked().fit(g)
@@ -73,10 +78,10 @@ def main():
                 stepsize=optimizer_config.stepsize,
                 progress=args.progress,
             )
+            result = engine.fit(g, penalties=penalties)
         case _:
             engine = engine_class()
-
-    result = engine.fit(g, penalties=penalties)
+            result = engine.fit(g)
 
     # Render output
     output_path = Path("output") / f"{name}.png"
