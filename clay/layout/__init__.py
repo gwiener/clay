@@ -77,13 +77,14 @@ def init_from_ranked(g: graph.Graph, direction: str = "TB") -> list[float]:
     """
     from clay.layout.ranked import Ranked
     result = Ranked(direction=direction).fit(g)
-    return result.layout.centers
+    centers = list(map(float, result.layout.centers))
+    return centers
 
 
 __all__ = [
     "LayoutEngine",
     "Result",
     "compute_variable_limits",
-    "init_random",
     "init_from_ranked",
+    "init_random",
 ]
