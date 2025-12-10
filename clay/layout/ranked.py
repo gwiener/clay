@@ -47,8 +47,8 @@ class Ranked(LayoutEngine):
         layer_order = self._minimize_crossings(g, node_layers, reversed_edges)
 
         # Phase 4: Assign coordinates
-        centers, canvas_width, canvas_height = self._assign_coordinates(g, node_layers, layer_order)
-
+        centers_coords, canvas_width, canvas_height = self._assign_coordinates(g, node_layers, layer_order)
+        centers = list(map(int, centers_coords))
         g_new = graph.Graph(
             nodes=g.nodes,
             edges=g.edges,
@@ -168,7 +168,7 @@ class Ranked(LayoutEngine):
         self,
         g: graph.Graph,
         node_layers: dict[str, int],
-        reversed_edges: set[tuple[str, str]]
+        reversed_edges: set[tuple[str, str]],
     ) -> dict[int, list[str]]:
         """
         Order nodes within each layer using barycenter heuristic.
@@ -184,7 +184,7 @@ class Ranked(LayoutEngine):
             layers[layer].append(node_name)
 
         # Convert to sorted dict
-        layer_order = {k: v for k, v in sorted(layers.items())}
+        layer_order = dict(sorted(layers.items()))
         num_layers = max(layer_order.keys()) + 1 if layer_order else 0
 
         # Initialize positions within each layer
@@ -227,7 +227,7 @@ class Ranked(LayoutEngine):
         layer_nodes: list[str],
         positions: dict[str, float],
         adjacency: dict[str, list[str]],
-        direction: str
+        direction: str,
     ) -> None:
         """
         Sort nodes in a layer by barycenter (average position of neighbors).
