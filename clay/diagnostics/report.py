@@ -1,4 +1,7 @@
+from typing import cast
+
 import numpy as np
+from scipy.optimize import OptimizeResult
 
 from clay.graph import Graph, Layout
 from clay.penalties import Penalty
@@ -9,7 +12,7 @@ def generate_diagnostic_report(
     layout: Layout,
     penalties: list[Penalty],
     history: list[dict[str, float]] | None = None,
-    optimization_result: object | None = None,
+    optimization_result: OptimizeResult | None = None,
     top_n: int = 5,
     output_path: str | None = None,
 ) -> str:
@@ -151,8 +154,10 @@ def generate_diagnostic_report(
         lines.append("")
 
         # Get the lowest optimization result for basinhopping
-        opt = getattr(optimization_result, 'lowest_optimization_result', optimization_result)
-
+        opt = cast(
+            "OptimizeResult",
+            getattr(optimization_result, "lowest_optimization_result", optimization_result),
+        )
         # Termination info
         if hasattr(opt, 'message'):
             msg = opt.message
@@ -160,13 +165,13 @@ def generate_diagnostic_report(
                 msg = msg[0] if msg else "Unknown"
             lines.append(f"- **Termination**: {msg}")
 
-        if hasattr(opt, 'nit'):
+        if hasattr(opt, "nit"):
             lines.append(f"- **Iterations**: {opt.nit}")
 
-        if hasattr(opt, 'nfev'):
+        if hasattr(opt, "nfev"):
             lines.append(f"- **Function evaluations**: {opt.nfev}")
 
-        if hasattr(optimization_result, 'minimization_failures'):
+        if hasattr(optimization_result, "minimization_failures"):
             lines.append(f"- **Minimization failures**: {optimization_result.minimization_failures}")
 
         # Gradient analysis
