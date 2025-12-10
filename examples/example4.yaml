@@ -8,8 +8,6 @@ nodes:
   - analyze
   - content
   - metadata
-  - online
-  - LLM knowledge
   - HyDE
   - search terms
   - generate
@@ -17,38 +15,24 @@ nodes:
   - index
   - lookup
   - candidates
-  - rerank
-  - reranked
-  - filter
-  - tabular
-  - final
 
 edges:
   - [input, analyze]
   - [analyze, content]
   - [analyze, metadata]
   - [content, HyDE]
-  - {src: online, dst: HyDE, flow: false}
-  - {src: LLM knowledge, dst: HyDE, flow: false}
   - [HyDE, search terms]
   - [content, generate]
   - [generate, criteria]
   - [search terms, lookup]
   - {src: index, dst: lookup, flow: false}
-  - [tabular, lookup]
-  - {src: metadata, dst: lookup, flow: false}
   - [lookup, candidates]
-  - [candidates, rerank]
-  - [rerank, reranked]
-  - [reranked, filter]
-  - [criteria, filter]
-  - [filter, final]
 
 penalties:
   spacing:
     w: 1.0
     D: 50
-    k_edge: 0.1
+    k_edge: 1.0
     k_repel: 10.0
   node_edge:
     w: 50.0
@@ -63,7 +47,7 @@ optimizer:
   method: basinhopping
   ftol: 1e-12
   gtol: 1e-3
-  max_iter: 5000
+  max_iter: 2000
   niter: 200
-  T: 10.0        # Higher T allows accepting worse solutions to escape local minima
+  T: 10.0
   stepsize: 150
