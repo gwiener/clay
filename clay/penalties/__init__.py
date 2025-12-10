@@ -65,4 +65,4 @@ class LocalPenalty(Penalty):
 
     def compute_contributions(self, centers: np.ndarray) -> dict:
         result = self.compute_local_energies(centers)
-        return {k: float(e) for k, e in zip(result.keys, result.energies) if e > 0}
+        return {k: float(e) for k, e in zip(result.keys, result.energies, strict=True) if e > 0}
